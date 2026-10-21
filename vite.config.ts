@@ -5,6 +5,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    allowedHosts: ['nasty-coats-start.loca.lt'],
+    allowedHosts: ['nasty-coats-start.loca.lt', 'gentle-spiders-press.loca.lt']
   }
 });
