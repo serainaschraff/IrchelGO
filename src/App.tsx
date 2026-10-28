@@ -59,6 +59,11 @@ const xrStore = createXRStore({
 
 const debugEnabled =
   new URLSearchParams(window.location.search).get("debug") === "1";
+const outsideModeEnabled =
+  new URLSearchParams(window.location.search).get("outside") === "1";
+const moveOnDistanceMeters = outsideModeEnabled
+  ? 25
+  : encounterRules.moveOnDistanceMeters;
 
 export default function App() {
     const eightWallCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -183,9 +188,12 @@ export default function App() {
 
         async function loadAreasAndWatchLocation() {
           try {
-            const response = await fetch("/data/animal-areas.geojson", {
+            const response = await fetch(
+              `${import.meta.env.BASE_URL}data/animal-areas.geojson`,
+              {
               signal: controller.signal,
-            });
+              },
+            );
             if (!response.ok) {
               throw new Error(`Could not load animal areas (${response.status}).`);
             }
@@ -231,7 +239,7 @@ export default function App() {
                   (selectedAnimalIdRef.current === null ||
                     (lastEncounterPosition.current !== null &&
                     distanceBetweenLocations(lastEncounterPosition.current, coords) >=
-                      encounterRules.moveOnDistanceMeters))
+                      moveOnDistanceMeters))
                 ) {
                   startRandomEncounter();
                 }
@@ -439,7 +447,7 @@ export default function App() {
       {experienceMode === "idle" ? (
         <img
           className="welcome-art"
-          src="/irchelgo-welcome.svg"
+          src={`${import.meta.env.BASE_URL}irchelgo-welcome.svg`}
           alt="The Mystical Fox overlooking a moonlit campus garden"
         />
       ) : null}
@@ -563,7 +571,7 @@ export default function App() {
               <li>The app tries WebXR first and can offer 8th Wall as a fallback.</li>
               <li>
                 Entering the Fox area starts a random animal encounter. Walking
-                at least {encounterRules.moveOnDistanceMeters} m starts another.
+                at least {moveOnDistanceMeters} m starts another.
               </li>
               <li>
                 After a {Math.round(
@@ -637,7 +645,7 @@ export default function App() {
             </div>
           ) : null}
           <a
-            href="/xr-runtime/LICENSE"
+            href={`${import.meta.env.BASE_URL}xr-runtime/LICENSE`}
             target="_blank"
             rel="noreferrer"
             style={{

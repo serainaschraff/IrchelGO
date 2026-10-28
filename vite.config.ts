@@ -72,6 +72,7 @@ function eightWallRuntimePlugin(): Plugin {
 }
 
 export default defineConfig({
+  base: process.env.GITHUB_ACTIONS === 'true' ? '/IrchelGO/' : '/',
   plugins: [react(), eightWallRuntimePlugin()],
   resolve: {
     dedupe: ['three']

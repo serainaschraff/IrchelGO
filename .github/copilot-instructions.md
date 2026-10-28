@@ -15,7 +15,7 @@ Key runtime pieces:
 - `src/components/AnimalEncounter.tsx` handles WebXR plane hit testing, animal placement, and camera-pan encounters.
 - `src/utils/animals.ts` is the animal registry and shared encounter-rule implementation. To add an animal, create a definition in `src/animals/` and add its ID to the appropriate GeoJSON area's `animals` list.
 - The idle welcome screen uses original static artwork and the Mystical Fox mascot; camera access is requested only after the user starts the game.
-- Animal areas define a pool of encounter animals. Entering an area or moving 10 m from the previous encounter selects an animal at random. The current testing settings trigger a new encounter after a 30-degree camera turn with a 100% chance after a 15-second cooldown; restore the original 90-degree/30% settings after testing.
+- Animal areas define a pool of encounter animals. Entering an area or moving 10 m from the previous encounter selects an animal at random by default; `?outside=1` changes only that move-on distance to 25 m. The current testing settings trigger a new encounter after a 30-degree camera turn with a 100% chance after a 15-second cooldown; restore the original 90-degree/30% settings after testing.
 
 The app is intentionally split between browser/device APIs and the 3D scene logic. Keep browser camera and tracking APIs in `src/utils/*`, not in React components.
 

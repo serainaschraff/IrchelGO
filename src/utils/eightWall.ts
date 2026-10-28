@@ -220,7 +220,7 @@ function loadRuntime(): Promise<ReadyEightWallApi> {
     if (window.XR8) return;
 
     const script = document.createElement("script");
-    script.src = "/xr-runtime/xr.js";
+    script.src = `${import.meta.env.BASE_URL}xr-runtime/xr.js`;
     script.async = true;
     script.crossOrigin = "anonymous";
     script.dataset.preloadChunks = "slam";
