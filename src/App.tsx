@@ -4,7 +4,7 @@ import {
   getGeolocation,
   isGeoJSONAreaCollection,
 } from "./utils/geolocation";
-import { RedWalls } from "./utils/planes";
+import { RedWalls } from "./components/RedWalls";
 import AnimalEncounter from "./components/AnimalEncounter";
 import { Canvas } from "@react-three/fiber";
 import { createXRStore, XR } from "@react-three/xr";
@@ -228,7 +228,7 @@ export default function App() {
                   }
                 } else if (
                   isArActiveRef.current &&
-                  (currentAnimalIdRef.current === null ||
+                  (selectedAnimalIdRef.current === null ||
                     (lastEncounterPosition.current !== null &&
                     distanceBetweenLocations(lastEncounterPosition.current, coords) >=
                       encounterRules.moveOnDistanceMeters))
@@ -329,20 +329,20 @@ export default function App() {
       }
       startRandomEncounter();
       try {
-        await startEightWall(
+        await startEightWall({
           canvas,
-          selectedAnimalIdRef.current,
-          debugEnabled,
-          setAnimalPlacementStatus,
-          (message) => {
+          animalId: selectedAnimalIdRef.current,
+          showDebug: debugEnabled,
+          onStatus: setAnimalPlacementStatus,
+          onRuntimeError: (message) => {
             setXrError(message);
             stopEightWall();
             finishARSession();
           },
-          startRandomEncounter,
-          confirmAnimalPlacement,
-          encounterNumberRef.current,
-        );
+          onEncounter: startRandomEncounter,
+          onPlaced: confirmAnimalPlacement,
+          encounterNumber: encounterNumberRef.current,
+        });
       } catch (error) {
         console.error("Failed to start 8th Wall AR:", error);
         stopEightWall();

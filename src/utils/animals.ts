@@ -21,6 +21,36 @@ export const encounterRules = {
   cameraTurnChance: 1,
 } as const;
 
+export type CameraPanState = {
+  latched: boolean;
+  lastAttemptAt: number;
+};
+
+export function shouldStartEncounterAfterCameraPan(
+  turnAngle: number,
+  now: number,
+  state: CameraPanState,
+): boolean {
+  if (turnAngle < encounterRules.cameraTurnResetRadians) {
+    state.latched = false;
+    return false;
+  }
+  if (
+    turnAngle < encounterRules.cameraTurnThresholdRadians ||
+    state.latched
+  ) {
+    return false;
+  }
+
+  state.latched = true;
+  if (now - state.lastAttemptAt < encounterRules.cameraTurnCooldownMs) {
+    return false;
+  }
+
+  state.lastAttemptAt = now;
+  return Math.random() < encounterRules.cameraTurnChance;
+}
+
 export function getAnimalDefinition(animalId: AnimalId): AnimalDefinition {
   const definition = animalRegistry.find((animal) => animal.id === animalId);
   if (!definition) {

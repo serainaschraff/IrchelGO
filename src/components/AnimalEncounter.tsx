@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useXRHitTest } from "@react-three/xr";
 import { Matrix4, Quaternion, Vector3 } from "three";
-import { encounterRules, getAnimalDefinition, type AnimalId } from "../utils/animals";
+import {
+  getAnimalDefinition,
+  shouldStartEncounterAfterCameraPan,
+  type AnimalId,
+} from "../utils/animals";
 
 type AnimalEncounterProps = {
   animalId: AnimalId;
@@ -38,8 +42,7 @@ export default function AnimalEncounter({
   const hasReportedPlacement = useRef(false);
   const lastStatus = useRef<string | null>(null);
   const encounterDirection = useRef<Vector3 | null>(null);
-  const cameraPanLatched = useRef(false);
-  const lastCameraPanAttemptAt = useRef(0);
+  const cameraPanState = useRef({ latched: false, lastAttemptAt: 0 });
 
   function getCameraDirection() {
     camera.getWorldDirection(cameraDirection);
@@ -95,7 +98,7 @@ export default function AnimalEncounter({
 
         hasPlacement.current = true;
         encounterDirection.current = getCameraDirection();
-        lastCameraPanAttemptAt.current = performance.now();
+        cameraPanState.current.lastAttemptAt = performance.now();
         setPlacement({
           position: [hitPosition.x, hitPosition.y + 0.005, hitPosition.z],
           yaw,
@@ -119,27 +122,15 @@ export default function AnimalEncounter({
     if (initialDirection === null) return;
     camera.getWorldDirection(cameraDirection);
     const turnAngle = initialDirection.angleTo(cameraDirection);
-    if (turnAngle < encounterRules.cameraTurnResetRadians) {
-      cameraPanLatched.current = false;
-      return;
-    }
     if (
-      turnAngle < encounterRules.cameraTurnThresholdRadians ||
-      cameraPanLatched.current
+      shouldStartEncounterAfterCameraPan(
+        turnAngle,
+        performance.now(),
+        cameraPanState.current,
+      )
     ) {
-      return;
+      onNewEncounter();
     }
-
-    cameraPanLatched.current = true;
-    const now = performance.now();
-    if (
-      now - lastCameraPanAttemptAt.current <
-      encounterRules.cameraTurnCooldownMs
-    ) {
-      return;
-    }
-    lastCameraPanAttemptAt.current = now;
-    if (Math.random() < encounterRules.cameraTurnChance) onNewEncounter();
   });
 
   if (!placement) return null;
@@ -152,6 +143,7 @@ export default function AnimalEncounter({
   );
 }
 
+/*
 export function CameraFallbackAnimal({
   animalId,
   screenPosition,
@@ -183,3 +175,4 @@ export function CameraFallbackAnimal({
     <AnimalModel position={placement.position} rotation={placement.rotation} />
   );
 }
+*/

@@ -6,7 +6,7 @@
 - [x] Add a small transparent button with white text that provides user-facing troubleshooting information, such as the current task, encountered errors, and important decisions.
 - [x] Disable the camera preview before the game starts and show a stylized in-game photo instead.
 - [x] Choose a game mascot and update the favicon to match.
-- [ ] Refactor to remove unneeded code.
+- [x] Refactor to remove unneeded code and consolidate duplicated animal/encounter logic.
 - [ ] Update the 10 m move-on distance to 25 m after playtesting.
 - [ ] (Optional) Tune random encounter weights by animal species.
 - [ ] Restore camera-pan encounter settings from 30° and 100% chance to the original 90° and 30% chance after testing.

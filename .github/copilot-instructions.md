@@ -8,12 +8,12 @@ Key runtime pieces:
 - `src/main.tsx` bootstraps the React app and mounts `App`.
 - `src/App.tsx` owns the full-screen layout and AR mode choice. The user starts WebXR first where supported and can choose 8th Wall after WebXR is unavailable or fails.
 - `src/utils/eightWall.ts` lazily loads the 8th Wall runtime, starts its Three.js camera pipeline, and uses detected horizontal surface hit tests to place the selected animal.
-- `src/animals/` contains one self-contained model module per animal; each module supplies its WebXR model and Three.js world-tracking model.
-- `src/utils/camera.ts` wraps `navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })`; it is retained for the commented screen-space fallback.
+- `src/animals/` contains animal identity and palette modules. Shared fox geometry and WebXR rendering live in `src/animals/FoxModel.tsx`; each animal definition supplies its palette and Three.js world-tracking model.
+- `src/utils/camera.ts` contains a commented-out camera helper retained with the disabled screen-space fallback.
 - `src/utils/geolocation.ts` exposes access to `navigator.geolocation`.
-- `src/utils/planes.tsx` contains the XR logic: `useXRPlanes('wall')` draws red wall planes and `useXRHitTest` tracks viewer-plane intersections for a small marker.
-- `src/components/AnimalEncounter.tsx` handles WebXR hit testing and camera-pan encounter checks; the selected model comes from its animal module.
-- `src/utils/animals.ts` is the animal registry. To add an animal, create a module in `src/animals/`, register its definition there, and add its ID to the appropriate GeoJSON area's `animals` list.
+- `src/components/RedWalls.tsx` uses `useXRPlanes('wall')` to display detected wall planes.
+- `src/components/AnimalEncounter.tsx` handles WebXR plane hit testing, animal placement, and camera-pan encounters.
+- `src/utils/animals.ts` is the animal registry and shared encounter-rule implementation. To add an animal, create a definition in `src/animals/` and add its ID to the appropriate GeoJSON area's `animals` list.
 - The idle welcome screen uses original static artwork and the Mystical Fox mascot; camera access is requested only after the user starts the game.
 - Animal areas define a pool of encounter animals. Entering an area or moving 10 m from the previous encounter selects an animal at random. The current testing settings trigger a new encounter after a 30-degree camera turn with a 100% chance after a 15-second cooldown; restore the original 90-degree/30% settings after testing.
 
@@ -82,10 +82,9 @@ Do not run WebXR and 8th Wall camera pipelines concurrently. Stop the 8th Wall p
 
 ### XR / plane detection logic
 
-The WebXR code in `src/utils/planes.tsx` is the most important scene logic in the repo. It uses:
-- `useXRPlanes('wall')` to collect wall planes,
-- `XRPlaneModel` to render them,
-- `useXRHitTest` with `'viewer'` and `'plane'` to place a red marker where the viewer intersects a detected plane.
+The WebXR scene code is split between `src/components/RedWalls.tsx` and `src/components/AnimalEncounter.tsx`. It uses:
+- `useXRPlanes('wall')` and `XRPlaneModel` to render detected wall planes,
+- `useXRHitTest` with `'viewer'` and `'plane'` to place an animal on a horizontal surface.
 
 `src/App.tsx` creates one module-level XR store with plane detection and hit testing enabled, passes it to `<XR store={xrStore}>`, and starts AR from a user gesture. Keep `enterAR()` behind the user action; automatic session offer is disabled.
 

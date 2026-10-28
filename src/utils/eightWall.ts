@@ -9,10 +9,25 @@ import {
   Vector3,
   type Camera,
   type Group,
-  type Material,
   type Scene,
 } from "three";
-import { encounterRules, getAnimalDefinition, type AnimalId } from "./animals";
+import {
+  getAnimalDefinition,
+  shouldStartEncounterAfterCameraPan,
+  type AnimalId,
+} from "./animals";
+import { disposeThreeObject } from "./three";
+
+type StartEightWallOptions = {
+  canvas: HTMLCanvasElement;
+  animalId: AnimalId | null;
+  showDebug: boolean;
+  onStatus: (status: string) => void;
+  onRuntimeError: (message: string) => void;
+  onEncounter: () => void;
+  onPlaced: (animalId: AnimalId, encounterNumber: number) => void;
+  encounterNumber: number;
+};
 
 type EightWallHit = {
   type: string;
@@ -105,8 +120,7 @@ let onAnimalPlaced: (animalId: AnimalId, encounterNumber: number) => void = () =
 let debugEnabled = false;
 let onNewEncounter: () => void = () => {};
 let encounterDirection: Vector3 | null = null;
-let cameraPanLatched = false;
-let lastCameraPanAttemptAt = 0;
+const cameraPanState = { latched: false, lastAttemptAt: 0 };
 let lastEncounterNumber = 0;
 const MIN_HORIZONTAL_ALIGNMENT = 0.5;
 const DEBUG_MARKER_LIMIT = 36;
@@ -342,21 +356,9 @@ function checkForCameraPan(now: number) {
   if (cameraDirection === null) return;
 
   const turnAngle = encounterDirection.angleTo(cameraDirection);
-  if (turnAngle < encounterRules.cameraTurnResetRadians) {
-    cameraPanLatched = false;
-    return;
+  if (shouldStartEncounterAfterCameraPan(turnAngle, now, cameraPanState)) {
+    onNewEncounter();
   }
-  if (
-    turnAngle < encounterRules.cameraTurnThresholdRadians ||
-    cameraPanLatched
-  ) {
-    return;
-  }
-
-  cameraPanLatched = true;
-  if (now - lastCameraPanAttemptAt < encounterRules.cameraTurnCooldownMs) return;
-  lastCameraPanAttemptAt = now;
-  if (Math.random() < encounterRules.cameraTurnChance) onNewEncounter();
 }
 
 function findHorizontalFeatureEstimate(): HorizontalFeatureEstimate | undefined {
@@ -561,8 +563,8 @@ function placeAnimalFromSurfaceHit(hit: EightWallHit, status: string) {
   activeScene.add(animal);
   activeAnimal = animal;
   encounterDirection = getCameraDirection();
-  cameraPanLatched = false;
-  lastCameraPanAttemptAt = performance.now();
+  cameraPanState.latched = false;
+  cameraPanState.lastAttemptAt = performance.now();
   onAnimalPlaced(activeAnimalId, lastEncounterNumber);
   onStatusChange(status);
 }
@@ -570,17 +572,11 @@ function placeAnimalFromSurfaceHit(hit: EightWallHit, status: string) {
 function removeActiveAnimal() {
   if (!activeAnimal) return;
   activeScene?.remove(activeAnimal);
-  activeAnimal.traverse((object) => {
-    if (!(object instanceof Mesh)) return;
-    object.geometry.dispose();
-    const materials = Array.isArray(object.material)
-      ? object.material
-      : [object.material];
-    materials.forEach((material: Material) => material.dispose());
-  });
+  disposeThreeObject(activeAnimal);
   activeAnimal = null;
   encounterDirection = null;
-  cameraPanLatched = false;
+  cameraPanState.latched = false;
+  cameraPanState.lastAttemptAt = 0;
 }
 
 function installPipeline(api: ReadyEightWallApi) {
@@ -607,7 +603,8 @@ function installPipeline(api: ReadyEightWallApi) {
       if (debugEnabled) installDebugMarkers(activeScene);
       activeAnimal = null;
       encounterDirection = null;
-      cameraPanLatched = false;
+      cameraPanState.latched = false;
+      cameraPanState.lastAttemptAt = 0;
       featurePointHistory = [];
       lastHitTestAt = 0;
       lastDiagnosticAt = 0;
@@ -730,22 +727,24 @@ function installPipeline(api: ReadyEightWallApi) {
   pipelineInstalled = true;
 }
 
-export async function startEightWall(
-  canvas: HTMLCanvasElement,
-  animalId: AnimalId | null,
-  showDebug: boolean,
-  onStatus: (status: string) => void,
-  onRuntimeError: (message: string) => void,
-  onEncounter: () => void,
-  onPlaced: (animalId: AnimalId, encounterNumber: number) => void,
-  encounterNumber: number,
-) {
+export async function startEightWall({
+  canvas,
+  animalId,
+  showDebug,
+  onStatus,
+  onRuntimeError,
+  onEncounter,
+  onPlaced,
+  encounterNumber,
+}: StartEightWallOptions) {
   onStatusChange = onStatus;
   onError = onRuntimeError;
   activeAnimalId = animalId;
   onNewEncounter = onEncounter;
   onAnimalPlaced = onPlaced;
   lastEncounterNumber = encounterNumber;
+  cameraPanState.latched = false;
+  cameraPanState.lastAttemptAt = 0;
   debugEnabled = showDebug;
 
   const api = await loadRuntime();
@@ -788,6 +787,8 @@ export function stopEightWall() {
   activeAnimalId = null;
   onNewEncounter = () => {};
   onAnimalPlaced = () => {};
+  cameraPanState.latched = false;
+  cameraPanState.lastAttemptAt = 0;
   lastEncounterNumber = 0;
   debugEnabled = false;
 }
