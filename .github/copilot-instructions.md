@@ -13,6 +13,7 @@ Key runtime pieces:
 - `src/utils/geolocation.ts` exposes access to `navigator.geolocation`.
 - `src/utils/planes.tsx` contains the XR logic: `useXRPlanes('wall')` draws red wall planes and `useXRHitTest` tracks viewer-plane intersections for a small marker.
 - `src/components/MysticalFox.tsx` defines the stylized fox and places it once on a detected horizontal XR plane; `src/App.tsx` renders it only when GPS matches the fox's GeoJSON area.
+- The idle welcome screen uses original static artwork and the Mystical Fox mascot; camera access is requested only after the user starts the game.
 
 The app is intentionally split between browser/device APIs and the 3D scene logic. Keep browser camera and tracking APIs in `src/utils/*`, not in React components.
 
@@ -25,6 +26,8 @@ Use the project scripts from the repository root:
 - `npx localtunnel --port 5173` — opens a public tunnel to the Vite app so browser/device permission flows can be tested through a non-localhost URL when required.
 - `npm run build` — runs TypeScript compilation and then produces the production bundle.
 - `npm run preview` — serves the built app locally for inspection.
+
+Append `?debug=1` to the app URL to show AR-path, camera, motion-sensor, and 8th Wall hit-test diagnostics. The default view hides those debug details.
 
 For browser permission flows that require a non-`https://localhost` origin, run the app in two terminals:
 

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { startCamera } from "./utils/camera";
 import {
   findGeoJSONFeatureAtLocation,
   getGeolocation,
@@ -44,15 +43,14 @@ const xrStore = createXRStore({
   hitTest: true,
 });
 
+const debugEnabled =
+  new URLSearchParams(window.location.search).get("debug") === "1";
+
 export default function App() {
-    const previewVideoRef = useRef<HTMLVideoElement>(null);
-    const previewStreamRef = useRef<MediaStream | null>(null);
     const eightWallCanvasRef = useRef<HTMLCanvasElement>(null);
     const [xrError, setXrError] = useState<string | null>(null);
     const [xrSupported, setXrSupported] = useState<boolean | null>(null);
     const [experienceMode, setExperienceMode] = useState<"idle" | "webxr" | "eightwall">("idle");
-    const [cameraPreviewRestart, setCameraPreviewRestart] = useState(0);
-    const [cameraStatus, setCameraStatus] = useState("Camera preview is starting...");
     const [motionSensorStatus, setMotionSensorStatus] = useState(
       "Motion sensor access has not been checked.",
     );
@@ -60,6 +58,7 @@ export default function App() {
     const [currentAnimalId, setCurrentAnimalId] = useState<string | null>(null);
     const [foxPlacementStatus, setFoxPlacementStatus] = useState<string | null>(null);
     const [locationStatus, setLocationStatus] = useState("Loading animal areas...");
+    const [troubleshootingOpen, setTroubleshootingOpen] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -167,65 +166,15 @@ export default function App() {
         };
     }, []);
 
-    function stopCameraPreview() {
-      const stream = previewStreamRef.current;
-      if (!stream) return;
-      stream.getTracks().forEach((track) => track.stop());
-      previewStreamRef.current = null;
-      const video = previewVideoRef.current;
-      if (video?.srcObject === stream) {
-        video.srcObject = null;
-      }
-    }
-
-    useEffect(() => {
-      if (experienceMode !== "idle") return;
-      let cancelled = false;
-      setCameraStatus("Requesting camera access...");
-      void startCamera()
-        .then((stream) => {
-          if (cancelled) {
-            stream.getTracks().forEach((track) => track.stop());
-            return;
-          }
-          previewStreamRef.current = stream;
-          const video = previewVideoRef.current;
-          if (!video) {
-            stream.getTracks().forEach((track) => track.stop());
-            previewStreamRef.current = null;
-            setCameraStatus("Camera preview could not be displayed.");
-            return;
-          }
-          video.srcObject = stream;
-          return video.play().then(() => {
-            if (!cancelled) setCameraStatus("Live camera preview");
-          });
-        })
-        .catch((error: unknown) => {
-          if (cancelled) return;
-          console.error("Could not start the camera preview:", error);
-          stopCameraPreview();
-          setCameraStatus(`Camera preview unavailable: ${String(error)}`);
-        });
-
-      return () => {
-        cancelled = true;
-        stopCameraPreview();
-      };
-    }, [experienceMode, cameraPreviewRestart]);
-
     async function startARSession() {
       try {
         if (!navigator.xr || !await navigator.xr.isSessionSupported("immersive-ar")) {
           setXrError("WebXR AR is unavailable in this browser. Start 8th Wall AR instead.");
           return;
         }
-        stopCameraPreview();
-        setCameraStatus("Camera preview paused while WebXR uses the camera.");
         const session = await xrStore.enterAR();
         if (!session) {
           setXrError("The browser did not start a WebXR session. You can try 8th Wall AR.");
-          setCameraPreviewRestart((restart) => restart + 1);
           return;
         }
         setExperienceMode("webxr");
@@ -241,13 +190,10 @@ export default function App() {
           `Could not start WebXR AR: ${String(error)}. You can try 8th Wall AR.`,
         );
         setExperienceMode("idle");
-        setCameraPreviewRestart((restart) => restart + 1);
       }
     }
 
     async function start8thWallSession() {
-      stopCameraPreview();
-      setCameraStatus("Camera preview paused while 8th Wall starts its camera.");
       setExperienceMode("eightwall");
       setXrError(null);
       setFoxPlacementStatus("Starting 8th Wall world tracking...");
@@ -264,6 +210,7 @@ export default function App() {
         await startEightWall(
           canvas,
           currentAnimalId === "mystical-fox",
+          debugEnabled,
           setFoxPlacementStatus,
           (message) => {
             setXrError(message);
@@ -288,7 +235,6 @@ export default function App() {
     function end8thWallSession() {
       stopEightWall();
       setExperienceMode("idle");
-      setCameraStatus("Restarting camera preview...");
       setFoxPlacementStatus(null);
     }
 
@@ -305,6 +251,15 @@ export default function App() {
       }
     }
 
+    function startGame() {
+      if (xrSupported === null) return;
+      if (xrSupported) {
+        void startARSession();
+      } else {
+        void start8thWallSession();
+      }
+    }
+
     const arPathStatus =
       experienceMode === "webxr"
         ? "AR path: WebXR (primary) is active."
@@ -317,6 +272,17 @@ export default function App() {
                 ? "AR path: WebXR primary failed; 8th Wall fallback is available."
                 : "AR path: WebXR primary available; 8th Wall fallback available."
               : "AR path: WebXR unavailable; 8th Wall fallback available.";
+
+    const currentTask =
+      experienceMode === "webxr"
+        ? foxPlacementStatus ?? "AR is active. Looking for a suitable place to show the fox."
+        : experienceMode === "eightwall"
+          ? foxPlacementStatus ?? "Starting camera tracking."
+          : xrSupported === null
+            ? "Checking whether this browser supports AR."
+            : xrError
+              ? "AR could not start. You can try the 8th Wall option if it is available."
+              : "Ready to start the AR experience.";
 
     /*
      * Screen-space camera fallback, intentionally disabled while WebXR and
@@ -333,7 +299,7 @@ export default function App() {
      *     (event.clientY - bounds.top) / bounds.height,
      *   ]);
      * }
-     * Render a video using startCamera() and:
+     * Restore a camera preview using startCamera() and:
      * {fallbackPosition && (
      *   <CameraFallbackFox screenPosition={fallbackPosition} />
      * )}
@@ -343,16 +309,13 @@ export default function App() {
 
   return (
      <div className="app-shell">
-      <video
-        ref={previewVideoRef}
-        autoPlay
-        playsInline
-        muted
-        className="camera-layer"
-        style={{
-          zIndex: 0,
-        }}
-      />
+      {experienceMode === "idle" ? (
+        <img
+          className="welcome-art"
+          src="/irchelgo-welcome.svg"
+          alt="The Mystical Fox overlooking a moonlit campus garden"
+        />
+      ) : null}
       {experienceMode !== "eightwall" ? (
         <Canvas
           style={{
@@ -380,23 +343,31 @@ export default function App() {
           }}
         />
       ) : null}
-      <div style={{ position: "absolute", top: "20px", right: "20px", zIndex: 2 }}>
-        {experienceMode === "idle" && xrSupported === false ? (
-          <button type="button" onClick={() => void start8thWallSession()}>
-            Start AR with 8th Wall
+      {experienceMode === "idle" ? (
+        <section className="welcome-panel" aria-labelledby="welcome-heading">
+          <h2 id="welcome-heading">Welcome to Irchel Go!</h2>
+          <p>
+            When asked, allow camera, location, and motion/orientation access so
+            the AR experience and nearby animal matching can work.
+          </p>
+          <button
+            className="start-game-button"
+            type="button"
+            onClick={startGame}
+            disabled={xrSupported === null}
+          >
+            Start Game!
           </button>
-        ) : null}
-        {xrSupported === null ? <span>Checking AR support...</span> : null}
-        {experienceMode === "idle" && xrSupported ? (
-          <button type="button" onClick={() => void startARSession()}>
-            Start AR with WebXR
-          </button>
-        ) : null}
+          {xrSupported === null ? (
+            <p className="welcome-hint">Checking AR support…</p>
+          ) : null}
+        </section>
+      ) : null}
+      <div className="session-controls">
         {experienceMode === "idle" && xrSupported && xrError ? (
           <button
             type="button"
             onClick={() => void start8thWallSession()}
-            style={{ marginLeft: "8px" }}
           >
             Try 8th Wall
           </button>
@@ -407,129 +378,100 @@ export default function App() {
           </button>
         ) : null}
       </div>
-      <p
-        role="status"
-        aria-live="polite"
-        style={{
-          position: "absolute",
-          top: "58px",
-          right: "20px",
-          zIndex: 2,
-          margin: 0,
-          padding: "6px 10px",
-          borderRadius: "4px",
-          background: "rgba(0, 0, 0, 0.65)",
-          color: "white",
-          fontSize: "14px",
-        }}
-      >
-        {arPathStatus}
-      </p>
+      <div className="troubleshooting">
+        <button
+          className="troubleshooting-toggle"
+          type="button"
+          aria-expanded={troubleshootingOpen}
+          aria-controls="troubleshooting-panel"
+          onClick={() => setTroubleshootingOpen((open) => !open)}
+        >
+          {troubleshootingOpen ? "Close help" : "Troubleshooting"}
+        </button>
+        {troubleshootingOpen ? (
+          <section
+            id="troubleshooting-panel"
+            className="troubleshooting-panel"
+            aria-label="Troubleshooting information"
+          >
+            <h2>Need help?</h2>
+            <h3>What is happening</h3>
+            <p>{currentTask}</p>
+            <h3>Location</h3>
+            <p>{locationStatus}</p>
+            {xrError ? (
+              <>
+                <h3>AR issue</h3>
+                <p role="status">{xrError}</p>
+              </>
+            ) : null}
+            <h3>How the experience works</h3>
+            <ul>
+              <li>AR starts only after you tap Start Game.</li>
+              <li>The app tries WebXR first and can offer 8th Wall as a fallback.</li>
+              <li>The Mystical Fox appears when your location matches its campus area.</li>
+              <li>Allow camera and location access when prompted. Keep the camera aimed at a well-lit, textured surface while tracking starts.</li>
+            </ul>
+          </section>
+        ) : null}
+      </div>
+      {debugEnabled ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="debug-path-status"
+        >
+          {arPathStatus}
+        </p>
+      ) : null}
       {experienceMode === "idle" ? (
         <>
-          <p
-            role="status"
-            aria-live="polite"
-            style={{
-              position: "absolute",
-              top: "96px",
-              right: "20px",
-              zIndex: 2,
-              margin: 0,
-              padding: "6px 10px",
-              borderRadius: "4px",
-              background: "rgba(0, 0, 0, 0.65)",
-              color: "white",
-              fontSize: "14px",
-            }}
-          >
-            {cameraStatus}
-          </p>
-          <div
-            style={{
-              position: "absolute",
-              bottom: "16px",
-              left: "12px",
-              right: "12px",
-              zIndex: 2,
-              color: "white",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => void checkMotionSensors()}
-              disabled={checkingMotionSensors}
-            >
-              {checkingMotionSensors
-                ? "Checking motion sensors..."
-                : "Check motion sensor access"}
-            </button>
-            <p
-              role="status"
-              aria-live="polite"
-              style={{
-                margin: "6px 0 0",
-                padding: "6px 8px",
-                borderRadius: "4px",
-                background: "rgba(0, 0, 0, 0.7)",
-                fontSize: "12px",
-                lineHeight: 1.4,
-              }}
-            >
-              {motionSensorStatus}
-            </p>
-          </div>
+          {debugEnabled ? (
+            <div className="debug-sensor-panel">
+              <button
+                type="button"
+                onClick={() => void checkMotionSensors()}
+                disabled={checkingMotionSensors}
+              >
+                {checkingMotionSensors
+                  ? "Checking motion sensors..."
+                  : "Check motion sensor access"}
+              </button>
+              <p role="status" aria-live="polite">
+                {motionSensorStatus}
+              </p>
+            </div>
+          ) : null}
         </>
       ) : null}
-      {xrError && (
+      {debugEnabled && xrError && (
         <p role="alert" style={{ position: "absolute", top: "92px", right: "20px", zIndex: 2, color: "white" }}>
           {xrError}
         </p>
       )}
-      <p
-        aria-live="polite"
-        style={{
-          position: "absolute",
-          top: "86px",
-          left: "12px",
-          right: "12px",
-          zIndex: 2,
-          margin: 0,
-          padding: "8px 10px",
-          borderRadius: "4px",
-          background: "rgba(0, 0, 0, 0.7)",
-          color: "white",
-          fontSize: "13px",
-          lineHeight: 1.4,
-          whiteSpace: "pre-line",
-        }}
-      >
-        {experienceMode === "idle"
-          ? `${locationStatus}. Start AR to scan for a surface.`
-          : `${locationStatus}\n${foxPlacementStatus ?? "Starting AR..."}`}
-      </p>
+      {debugEnabled ? (
+        <p
+          aria-live="polite"
+          className="location-status"
+        >
+          {experienceMode === "idle"
+            ? locationStatus
+            : `${locationStatus}\n${foxPlacementStatus ?? "Starting AR..."}`}
+        </p>
+      ) : null}
       {experienceMode === "eightwall" ? (
         <>
-          <div
-            aria-label="Hit-test marker color legend"
-            style={{
-              position: "absolute",
-              bottom: "40px",
-              left: "12px",
-              zIndex: 2,
-              padding: "6px 8px",
-              borderRadius: "4px",
-              background: "rgba(0, 0, 0, 0.7)",
-              color: "white",
-              fontSize: "12px",
-              lineHeight: 1.5,
-            }}
-          >
-            <span style={{ color: "#00ff66" }}>●</span> detected surface{" "}
-            <span style={{ color: "#ffcc00" }}>●</span> estimated surface{" "}
-            <span style={{ color: "#00ccff" }}>●</span> feature point{" "}
-            <span style={{ color: "#ff00ff" }}>●</span> other hit
-          </div>
+          {debugEnabled ? (
+            <div
+              aria-label="Hit-test marker color legend"
+              className="debug-hit-legend"
+            >
+              <span style={{ color: "#00ff66" }}>●</span> detected surface{" "}
+              <span style={{ color: "#ffcc00" }}>●</span> estimated surface{" "}
+              <span style={{ color: "#00ccff" }}>●</span> feature point{" "}
+              <span style={{ color: "#ff00ff" }}>●</span> other hit
+            </div>
+          ) : null}
           <a
             href="/xr-runtime/LICENSE"
             target="_blank"

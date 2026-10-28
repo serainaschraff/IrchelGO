@@ -7,6 +7,7 @@ import {
   Quaternion,
   SphereGeometry,
   Vector3,
+  type Camera,
   type Group,
   type Scene,
 } from "three";
@@ -33,6 +34,7 @@ type HorizontalFeatureEstimate = {
   supportCount: number;
   sampleCount: number;
   horizontalSpan: number;
+  distanceFromCamera: number;
 };
 
 type EightWallModule = {
@@ -59,7 +61,7 @@ type EightWallApi = {
   GlTextureRenderer?: { pipelineModule?: () => EightWallModule } | null;
   Threejs: {
     pipelineModule?: () => EightWallModule;
-    xrScene?: () => { scene: Scene };
+    xrScene?: () => { scene: Scene; camera: Camera };
   } | null;
   XrController: {
     configure?: (options: { disableWorldTracking: boolean }) => void;
@@ -74,7 +76,7 @@ type ReadyEightWallApi = EightWallApi & {
   GlTextureRenderer: { pipelineModule: () => EightWallModule };
   Threejs: {
     pipelineModule: () => EightWallModule;
-    xrScene: () => { scene: Scene };
+    xrScene: () => { scene: Scene; camera: Camera };
   };
   XrController: {
     configure: (options: { disableWorldTracking: boolean }) => void;
@@ -94,22 +96,29 @@ declare global {
 let runtimePromise: Promise<ReadyEightWallApi> | null = null;
 let pipelineInstalled = false;
 let activeScene: Scene | null = null;
+let activeCamera: Camera | null = null;
 let activeFox: Group | null = null;
 let activeCanvas: HTMLCanvasElement | null = null;
 let animalAvailable = false;
+let debugEnabled = false;
 const MIN_HORIZONTAL_ALIGNMENT = 0.5;
 const DEBUG_MARKER_LIMIT = 36;
 const FEATURE_POINT_HISTORY_MS = 6000;
 const FEATURE_POINT_DEDUP_DISTANCE = 0.05;
 const FEATURE_PLANE_HEIGHT_TOLERANCE = 0.1;
 const MIN_FEATURE_PLANE_SUPPORT = 12;
+const AIM_SCREEN_X = 0.5;
+const AIM_SCREEN_Y = 0.62;
+const MIN_AIM_DISTANCE = 0.5;
+const MAX_AIM_DISTANCE = 8;
 const samplePoints: Array<[number, number]> = [
-  [0.5, 0.68],
-  [0.35, 0.68],
-  [0.65, 0.68],
-  [0.2, 0.8],
-  [0.5, 0.82],
-  [0.8, 0.8],
+  [0.5, 0.52],
+  [0.5, 0.62],
+  [0.5, 0.7],
+  [0.35, 0.62],
+  [0.65, 0.62],
+  [0.2, 0.74],
+  [0.8, 0.74],
 ];
 const hitTypeColors: Record<string, number> = {
   DETECTED_SURFACE: 0x00ff66,
@@ -289,6 +298,30 @@ function median(values: number[]) {
   return (lowerMiddleValue + middleValue) / 2;
 }
 
+function intersectAimRayWithHorizontalPlane(height: number) {
+  if (!activeCamera) return undefined;
+
+  activeCamera.updateMatrixWorld(true);
+  const cameraPosition = activeCamera.getWorldPosition(new Vector3());
+  const aimPoint = new Vector3(
+    AIM_SCREEN_X * 2 - 1,
+    1 - AIM_SCREEN_Y * 2,
+    0.5,
+  ).unproject(activeCamera);
+  const aimDirection = aimPoint.sub(cameraPosition).normalize();
+  if (aimDirection.y >= -0.02) return undefined;
+
+  const distance = (height - cameraPosition.y) / aimDirection.y;
+  if (distance < MIN_AIM_DISTANCE || distance > MAX_AIM_DISTANCE) {
+    return undefined;
+  }
+
+  return {
+    position: cameraPosition.addScaledVector(aimDirection, distance),
+    distance,
+  };
+}
+
 function findHorizontalFeatureEstimate(): HorizontalFeatureEstimate | undefined {
   let bestCluster: TrackedFeaturePoint[] = [];
   for (const anchor of featurePointHistory) {
@@ -318,28 +351,67 @@ function findHorizontalFeatureEstimate(): HorizontalFeatureEstimate | undefined 
     return undefined;
   }
 
+  const estimatedHeight = median(bestCluster.map(({ hit }) => hit.position.y));
+  const aimIntersection = intersectAimRayWithHorizontalPlane(estimatedHeight);
+  let position: Vector3;
+  let distanceFromCamera: number;
+
+  if (aimIntersection) {
+    position = aimIntersection.position;
+    distanceFromCamera = aimIntersection.distance;
+  } else {
+    const nearestAimSample = bestCluster.reduce((nearest, point) => {
+      const current = samplePoints[point.sampleIndex];
+      const nearestSample = samplePoints[nearest.sampleIndex];
+      if (!current || !nearestSample) return nearest;
+      const currentDistance = Math.hypot(
+        current[0] - AIM_SCREEN_X,
+        current[1] - AIM_SCREEN_Y,
+      );
+      const nearestDistance = Math.hypot(
+        nearestSample[0] - AIM_SCREEN_X,
+        nearestSample[1] - AIM_SCREEN_Y,
+      );
+      return currentDistance < nearestDistance ? point : nearest;
+    });
+    const cameraPosition =
+      activeCamera?.getWorldPosition(new Vector3()) ?? new Vector3();
+    position = new Vector3(
+      nearestAimSample.hit.position.x,
+      estimatedHeight,
+      nearestAimSample.hit.position.z,
+    );
+    distanceFromCamera = position.distanceTo(cameraPosition);
+  }
+
   return {
     hit: {
       type: "ESTIMATED_SURFACE",
       position: {
-        x: median(xValues),
-        y: median(bestCluster.map(({ hit }) => hit.position.y)),
-        z: median(zValues),
+        x: position.x,
+        y: position.y,
+        z: position.z,
       },
       rotation: { x: 0, y: 0, z: 0, w: 1 },
     },
     supportCount: bestCluster.length,
     sampleCount,
     horizontalSpan,
+    distanceFromCamera,
   };
 }
 
 function inspectHitResults(api: ReadyEightWallApi) {
   const hits: EightWallHit[] = [];
   const featurePoints: Array<{ hit: EightWallHit; sampleIndex: number }> = [];
+  let bestCandidate: {
+    hit: EightWallHit;
+    horizontalAlignment: number;
+    screenDistance: number;
+    isDetectedSurface: boolean;
+  } | undefined;
   let bestSurfaceHit: EightWallHit | undefined;
   let bestHorizontalAlignment = 0;
-  let bestSurfaceIsDetected = false;
 
   for (const [sampleIndex, [x, y]] of samplePoints.entries()) {
     const pointHits = api.XrController.hitTest(x, y, ["FEATURE_POINT"]);
@@ -363,20 +435,35 @@ function inspectHitResults(api: ReadyEightWallApi) {
       );
       const surfaceUp = new Vector3(0, 1, 0).applyQuaternion(rotation);
       const horizontalAlignment = Math.abs(surfaceUp.y);
+      if (horizontalAlignment < MIN_HORIZONTAL_ALIGNMENT) continue;
+
       const isDetectedSurface = candidate.type === "DETECTED_SURFACE";
+      const screenDistance = Math.hypot(
+        x - AIM_SCREEN_X,
+        y - AIM_SCREEN_Y,
+      );
       if (
-        horizontalAlignment > bestHorizontalAlignment ||
-        (horizontalAlignment === bestHorizontalAlignment &&
+        !bestCandidate ||
+        screenDistance < bestCandidate.screenDistance ||
+        (screenDistance === bestCandidate.screenDistance &&
+          horizontalAlignment > bestCandidate.horizontalAlignment) ||
+        (screenDistance === bestCandidate.screenDistance &&
+          horizontalAlignment === bestCandidate.horizontalAlignment &&
           isDetectedSurface &&
-          !bestSurfaceIsDetected)
+          !bestCandidate.isDetectedSurface)
       ) {
-        bestSurfaceHit = candidate;
-        bestHorizontalAlignment = horizontalAlignment;
-        bestSurfaceIsDetected = isDetectedSurface;
+        bestCandidate = {
+          hit: candidate,
+          horizontalAlignment,
+          screenDistance,
+          isDetectedSurface,
+        };
       }
     }
   }
 
+  bestSurfaceHit = bestCandidate?.hit;
+  bestHorizontalAlignment = bestCandidate?.horizontalAlignment ?? 0;
   updateFeaturePointHistory(featurePoints, performance.now());
   return {
     hits,
@@ -416,13 +503,13 @@ function formatHitDiagnostics(
     ? `Best actual surface: ${bestSurfaceHit.type}, ${Math.round((Math.acos(Math.min(1, bestHorizontalAlignment)) * 180) / Math.PI)}° from horizontal; ${bestHorizontalAlignment >= MIN_HORIZONTAL_ALIGNMENT ? "acceptable" : "too tilted (maximum allowed 60°)"}.`
     : "No actual surface candidate returned.";
   const estimateSummary = featureEstimate
-    ? `Experimental plane estimate supported by ${featureEstimate.supportCount} points across ${featureEstimate.sampleCount} camera samples (${featureEstimate.horizontalSpan.toFixed(2)} m span).`
+    ? `Experimental plane estimate supported by ${featureEstimate.supportCount} points across ${featureEstimate.sampleCount} camera samples (${featureEstimate.horizontalSpan.toFixed(2)} m span); view ray intersects it ${featureEstimate.distanceFromCamera.toFixed(1)} m ahead.`
     : `Experimental plane estimate: ${featurePointCount}/${MIN_FEATURE_PLANE_SUPPORT} unique feature points so far; move slowly across the floor to gather points.`;
 
   return `${trackingSummary}. Hit test across ${samplePoints.length} camera points: ${hitSummary}. ${surfaceSummary} ${estimateSummary} ${placementAvailability}.`;
 }
 
-function placeFoxFromSurfaceHit(hit: EightWallHit) {
+function placeFoxFromSurfaceHit(hit: EightWallHit, status: string) {
   if (!animalAvailable || !activeScene || activeFox) return;
 
   const rotation = new Quaternion(
@@ -436,7 +523,7 @@ function placeFoxFromSurfaceHit(hit: EightWallHit) {
   fox.quaternion.copy(rotation);
   activeScene.add(fox);
   activeFox = fox;
-  onStatusChange("Fox placed on a horizontal surface detected by 8th Wall.");
+  onStatusChange(status);
 }
 
 function installPipeline(api: ReadyEightWallApi) {
@@ -445,7 +532,9 @@ function installPipeline(api: ReadyEightWallApi) {
   const appModule: EightWallModule = {
     name: "irchelgo-world-placement",
     onStart: () => {
-      activeScene = api.Threejs.xrScene().scene;
+      const xrScene = api.Threejs.xrScene();
+      activeScene = xrScene.scene;
+      activeCamera = xrScene.camera;
       activeScene.children
         .filter(
           (child) =>
@@ -458,7 +547,7 @@ function installPipeline(api: ReadyEightWallApi) {
       const directionalLight = new DirectionalLight(0xffffff, 2.2);
       directionalLight.name = "irchelgo-directional-light";
       activeScene.add(ambientLight, directionalLight);
-      installDebugMarkers(activeScene);
+      if (debugEnabled) installDebugMarkers(activeScene);
       activeFox = null;
       featurePointHistory = [];
       lastHitTestAt = 0;
@@ -478,12 +567,15 @@ function installPipeline(api: ReadyEightWallApi) {
 
       const now = performance.now();
       if (reality?.trackingStatus === "LIMITED") {
-        if (now - lastDiagnosticAt >= 1000) {
+        const statusInterval = debugEnabled ? 1000 : 5000;
+        if (now - lastDiagnosticAt >= statusInterval) {
           lastDiagnosticAt = now;
           featurePointHistory = [];
           updateDebugMarkers([]);
           onStatusChange(
-            `Tracking LIMITED${reality.trackingReason ? ` (${reality.trackingReason})` : ""}. Hit testing is paused; move the phone slowly and aim at a textured area.`,
+            debugEnabled
+              ? `Tracking LIMITED${reality.trackingReason ? ` (${reality.trackingReason})` : ""}. Hit testing is paused; move the phone slowly and aim at a textured area.`
+              : "AR tracking is limited. Move the phone slowly and aim at a textured area.",
           );
         }
         return;
@@ -508,7 +600,7 @@ function installPipeline(api: ReadyEightWallApi) {
           console.error(message, error);
           lastHitTestError = message;
         }
-        if (now - lastDiagnosticAt >= 1000) {
+        if (debugEnabled && now - lastDiagnosticAt >= 1000) {
           lastDiagnosticAt = now;
           onStatusChange(message);
         }
@@ -522,14 +614,16 @@ function installPipeline(api: ReadyEightWallApi) {
         featurePointCount,
         featureEstimate,
       } = inspection;
-      updateDebugMarkers(
-        [
-          ...hits,
-          ...(featureEstimate ? [featureEstimate.hit] : []),
-        ].slice(0, DEBUG_MARKER_LIMIT),
-      );
+      if (debugEnabled) {
+        updateDebugMarkers(
+          [
+            ...hits,
+            ...(featureEstimate ? [featureEstimate.hit] : []),
+          ].slice(0, DEBUG_MARKER_LIMIT),
+        );
+      }
 
-      if (now - lastDiagnosticAt >= 1000) {
+      if (debugEnabled && now - lastDiagnosticAt >= 1000) {
         lastDiagnosticAt = now;
         onStatusChange(
           formatHitDiagnostics(
@@ -549,12 +643,15 @@ function installPipeline(api: ReadyEightWallApi) {
         bestHorizontalAlignment >= MIN_HORIZONTAL_ALIGNMENT &&
         animalAvailable
       ) {
-        placeFoxFromSurfaceHit(bestSurfaceHit);
-      } else if (featureEstimate && animalAvailable) {
-        onStatusChange(
-          `Experimental horizontal plane estimated from ${featureEstimate.supportCount} feature points. Placing the fox at the approximate floor/table height.`,
+        placeFoxFromSurfaceHit(
+          bestSurfaceHit,
+          "Fox placed on a horizontal surface near the center of your view.",
         );
-        placeFoxFromSurfaceHit(featureEstimate.hit);
+      } else if (featureEstimate && animalAvailable) {
+        placeFoxFromSurfaceHit(
+          featureEstimate.hit,
+          `Experimental plane estimated from ${featureEstimate.supportCount} feature points; fox placed along your view direction, ${featureEstimate.distanceFromCamera.toFixed(1)} m ahead at the approximate surface height.`,
+        );
       }
     },
     onCameraStatusChange: ({ status }) => {
@@ -580,12 +677,14 @@ function installPipeline(api: ReadyEightWallApi) {
 export async function startEightWall(
   canvas: HTMLCanvasElement,
   animalIsAvailable: boolean,
+  showDebug: boolean,
   onStatus: (status: string) => void,
   onRuntimeError: (message: string) => void,
 ) {
   onStatusChange = onStatus;
   onError = onRuntimeError;
   animalAvailable = animalIsAvailable;
+  debugEnabled = showDebug;
 
   const api = await loadRuntime();
   window.THREE = THREE;
@@ -619,6 +718,8 @@ export function stopEightWall() {
   removeDebugMarkers(activeScene);
   if (activeFox && activeScene) activeScene.remove(activeFox);
   activeScene = null;
+  activeCamera = null;
   activeFox = null;
   animalAvailable = false;
+  debugEnabled = false;
 }

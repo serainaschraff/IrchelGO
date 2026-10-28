@@ -1,10 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#174a38"/>
-  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5">
-    <path d="m14 26 2-14 13 9a20 20 0 0 1 6 0l13-9 2 14a19 19 0 1 1-36 0Z"/>
-    <path d="M23 29h.5M40.5 29h.5"/>
-    <path d="m29 37 3 2 3-2-3-2-3 2Z"/>
-    <path d="M32 39v3m0 0c-2 3-5 3-7 1m7-1c2 3 5 3 7 1"/>
-    <path d="m23 37-10-2m10 6-11 1m29-5 10-2m-10 6 11 1"/>
-  </g>
+  <defs>
+    <linearGradient id="fur" x1="16" y1="13" x2="49" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F4B34F"/>
+      <stop offset="1" stop-color="#C45C38"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#183B45"/>
+  <path fill="#F2B24D" d="m11 27 4-19 15 12 4 0L49 8l4 19c4 17-6 29-21 31C17 56 7 44 11 27Z"/>
+  <path fill="#FFF0D5" d="M14 30c5 3 10 3 16 0v12c-4 7-9 9-15 6-5-5-5-11-1-18Zm36 0c-5 3-10 3-16 0v12c4 7 9 9 15 6 5-5 5-11 1-18Z"/>
+  <path fill="#F7E5C4" d="M19 38c4-3 8-4 13-3 5-1 9 0 13 3-2 9-6 14-13 14s-11-5-13-14Z"/>
+  <path fill="#392B2B" d="M21 31c2-2 5-2 7 0v3c-2 2-5 2-7 0v-3Zm15 0c2-2 5-2 7 0v3c-2 2-5 2-7 0v-3Z"/>
+  <path fill="#392B2B" d="m28 42 4-3 4 3-4 3-4-3Z"/>
+  <path d="M32 45v3m0 0c-2 3-5 3-7 1m7-1c2 3 5 3 7 1" fill="none" stroke="#392B2B" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+  <path d="m20 43-8-2m8 6-8 1m32-5 8-2m-8 6 8 1" fill="none" stroke="#FFF0D5" stroke-linecap="round" stroke-width="1.4"/>
+  <path fill="#46D5CF" d="m49 45 2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/>
 </svg>
