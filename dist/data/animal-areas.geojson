@@ -4,8 +4,9 @@
     {
       "type": "Feature",
       "properties": {
-        "animalId": "mystical-fox",
-        "animalName": "Mystical Fox",
+        "areaId": "zurich-fox-area",
+        "areaName": "Fox area",
+        "animals": ["mystical-fox", "polar-fox"],
         "canton": "Zürich",
         "cantonISO": "CH-ZH",
         "boundarySource": "geoBoundaries gbOpen, based on swisstopo",

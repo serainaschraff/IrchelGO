@@ -7,13 +7,15 @@ This repository is a Vite + React + TypeScript app for an immersive AR/VR campus
 Key runtime pieces:
 - `src/main.tsx` bootstraps the React app and mounts `App`.
 - `src/App.tsx` owns the full-screen layout and AR mode choice. The user starts WebXR first where supported and can choose 8th Wall after WebXR is unavailable or fails.
-- `src/utils/eightWall.ts` lazily loads the 8th Wall runtime, starts its Three.js camera pipeline, and uses detected horizontal surface hit tests to place the location-matched animal.
-- `src/components/mysticalFoxModel.ts` builds the Three.js fox model used by the 8th Wall pipeline.
+- `src/utils/eightWall.ts` lazily loads the 8th Wall runtime, starts its Three.js camera pipeline, and uses detected horizontal surface hit tests to place the selected animal.
+- `src/animals/` contains one self-contained model module per animal; each module supplies its WebXR model and Three.js world-tracking model.
 - `src/utils/camera.ts` wraps `navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })`; it is retained for the commented screen-space fallback.
 - `src/utils/geolocation.ts` exposes access to `navigator.geolocation`.
 - `src/utils/planes.tsx` contains the XR logic: `useXRPlanes('wall')` draws red wall planes and `useXRHitTest` tracks viewer-plane intersections for a small marker.
-- `src/components/MysticalFox.tsx` defines the stylized fox and places it once on a detected horizontal XR plane; `src/App.tsx` renders it only when GPS matches the fox's GeoJSON area.
+- `src/components/AnimalEncounter.tsx` handles WebXR hit testing and camera-pan encounter checks; the selected model comes from its animal module.
+- `src/utils/animals.ts` is the animal registry. To add an animal, create a module in `src/animals/`, register its definition there, and add its ID to the appropriate GeoJSON area's `animals` list.
 - The idle welcome screen uses original static artwork and the Mystical Fox mascot; camera access is requested only after the user starts the game.
+- Animal areas define a pool of encounter animals. Entering an area or moving 10 m from the previous encounter selects an animal at random. The current testing settings trigger a new encounter after a 30-degree camera turn with a 100% chance after a 15-second cooldown; restore the original 90-degree/30% settings after testing.
 
 The app is intentionally split between browser/device APIs and the 3D scene logic. Keep browser camera and tracking APIs in `src/utils/*`, not in React components.
 

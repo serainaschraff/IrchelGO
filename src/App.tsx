@@ -5,19 +5,28 @@ import {
   isGeoJSONAreaCollection,
 } from "./utils/geolocation";
 import { RedWalls } from "./utils/planes";
-import MysticalFox from "./components/MysticalFox";
+import AnimalEncounter from "./components/AnimalEncounter";
 import { Canvas } from "@react-three/fiber";
 import { createXRStore, XR } from "@react-three/xr";
 import {
-  setEightWallAnimalAvailable,
+  setEightWallEncounterAnimal,
   startEightWall,
   stopEightWall,
 } from "./utils/eightWall";
 import { checkMotionSensorAccess } from "./utils/motionSensors";
+import {
+  chooseRandomAnimal,
+  distanceBetweenLocations,
+  encounterRules,
+  getAnimalDefinition,
+  isAnimalId,
+  type AnimalId,
+} from "./utils/animals";
 
 type AnimalAreaProperties = {
-  animalId: string;
-  animalName?: string;
+  areaId: string;
+  areaName: string;
+  animals: AnimalId[];
 };
 
 function isAnimalAreaProperties(
@@ -26,9 +35,14 @@ function isAnimalAreaProperties(
   return (
     value === null ||
     (typeof value === "object" &&
-      "animalId" in value &&
-      typeof value.animalId === "string" &&
-      (!("animalName" in value) || typeof value.animalName === "string"))
+      "areaId" in value &&
+      typeof value.areaId === "string" &&
+      "areaName" in value &&
+      typeof value.areaName === "string" &&
+      "animals" in value &&
+      Array.isArray(value.animals) &&
+      value.animals.length > 0 &&
+      value.animals.every(isAnimalId))
   );
 }
 
@@ -55,10 +69,79 @@ export default function App() {
       "Motion sensor access has not been checked.",
     );
     const [checkingMotionSensors, setCheckingMotionSensors] = useState(false);
-    const [currentAnimalId, setCurrentAnimalId] = useState<string | null>(null);
-    const [foxPlacementStatus, setFoxPlacementStatus] = useState<string | null>(null);
+    const [selectedAnimalId, setSelectedAnimalId] = useState<AnimalId | null>(null);
+    const [currentAnimalId, setCurrentAnimalId] = useState<AnimalId | null>(null);
+    const [previousEncounters, setPreviousEncounters] = useState<AnimalId[]>([]);
+    const [encounterNumber, setEncounterNumber] = useState(0);
+    const [animalPlacementStatus, setAnimalPlacementStatus] = useState<string | null>(null);
     const [locationStatus, setLocationStatus] = useState("Loading animal areas...");
     const [troubleshootingOpen, setTroubleshootingOpen] = useState(false);
+    const selectedAnimalIdRef = useRef<AnimalId | null>(null);
+    const currentAnimalIdRef = useRef<AnimalId | null>(null);
+    const encounterNumberRef = useRef(0);
+    const previousEncountersRef = useRef<AnimalId[]>([]);
+    const isArActiveRef = useRef(false);
+    const animalPoolRef = useRef<readonly AnimalId[]>([]);
+    const currentAreaIdRef = useRef<string | null>(null);
+    const latestPlayerPosition = useRef<GeolocationCoordinates | null>(null);
+    const lastEncounterPosition = useRef<GeolocationCoordinates | null>(null);
+
+    function recordPreviousEncounter(animalId: AnimalId) {
+      const updatedEncounters = [...previousEncountersRef.current, animalId];
+      previousEncountersRef.current = updatedEncounters;
+      setPreviousEncounters(updatedEncounters);
+    }
+
+    function archiveCurrentEncounter() {
+      const currentAnimal = currentAnimalIdRef.current;
+      if (currentAnimal) {
+        recordPreviousEncounter(currentAnimal);
+      }
+      currentAnimalIdRef.current = null;
+      setCurrentAnimalId(null);
+    }
+
+    function clearSelectedAnimal() {
+      selectedAnimalIdRef.current = null;
+      setSelectedAnimalId(null);
+    }
+
+    function confirmAnimalPlacement(animalId: AnimalId, placedEncounterNumber: number) {
+      if (
+        !isArActiveRef.current ||
+        selectedAnimalIdRef.current !== animalId ||
+        encounterNumberRef.current !== placedEncounterNumber ||
+        currentAnimalIdRef.current !== null
+      ) {
+        return;
+      }
+
+      currentAnimalIdRef.current = animalId;
+      setCurrentAnimalId(animalId);
+    }
+
+    function startRandomEncounter() {
+      if (!isArActiveRef.current) return;
+      const animals = animalPoolRef.current;
+      if (animals.length === 0) return;
+
+      archiveCurrentEncounter();
+      const animal = chooseRandomAnimal(animals);
+      selectedAnimalIdRef.current = animal.id;
+      setSelectedAnimalId(animal.id);
+      encounterNumberRef.current += 1;
+      setEncounterNumber(encounterNumberRef.current);
+      lastEncounterPosition.current = latestPlayerPosition.current;
+    }
+
+    function finishARSession() {
+      isArActiveRef.current = false;
+      archiveCurrentEncounter();
+      clearSelectedAnimal();
+      lastEncounterPosition.current = null;
+      setAnimalPlacementStatus(null);
+      setExperienceMode("idle");
+    }
 
     useEffect(() => {
         let cancelled = false;
@@ -119,18 +202,52 @@ export default function App() {
             watchId = geolocation.watchPosition(
               ({ coords }) => {
                 const feature = findGeoJSONFeatureAtLocation(data, coords);
-                const animalId = feature?.properties?.animalId ?? null;
-                setCurrentAnimalId(animalId);
+                latestPlayerPosition.current = coords;
+
+                if (!feature?.properties) {
+                  if (currentAreaIdRef.current !== null) {
+                    currentAreaIdRef.current = null;
+                    animalPoolRef.current = [];
+                    lastEncounterPosition.current = null;
+                    archiveCurrentEncounter();
+                    clearSelectedAnimal();
+                  }
+                  setLocationStatus(
+                    `Location acquired (±${Math.round(coords.accuracy)} m). You are not in an animal area.`,
+                  );
+                  return;
+                }
+
+                const { areaId, areaName, animals } = feature.properties;
+                if (currentAreaIdRef.current !== areaId) {
+                  currentAreaIdRef.current = areaId;
+                  animalPoolRef.current = animals;
+                  if (isArActiveRef.current) {
+                    archiveCurrentEncounter();
+                    startRandomEncounter();
+                  }
+                } else if (
+                  isArActiveRef.current &&
+                  (currentAnimalIdRef.current === null ||
+                    (lastEncounterPosition.current !== null &&
+                    distanceBetweenLocations(lastEncounterPosition.current, coords) >=
+                      encounterRules.moveOnDistanceMeters))
+                ) {
+                  startRandomEncounter();
+                }
+
                 setLocationStatus(
-                  animalId
-                    ? `Location acquired (±${Math.round(coords.accuracy)} m). You are in the ${feature?.properties?.animalName ?? animalId} area.`
-                    : `Location acquired (±${Math.round(coords.accuracy)} m). No animal area at your current location.`,
+                  `Location acquired (±${Math.round(coords.accuracy)} m). You are in the ${areaName}.`,
                 );
               },
               (error) => {
                 console.error("Could not get player location:", error);
                 if (error.code === 1) {
-                  setCurrentAnimalId(null);
+                  currentAreaIdRef.current = null;
+                  animalPoolRef.current = [];
+                  lastEncounterPosition.current = null;
+                  archiveCurrentEncounter();
+                  clearSelectedAnimal();
                   setLocationStatus("Location permission was denied. Allow location access and reload.");
                 } else if (error.code === 2) {
                   setLocationStatus("The device cannot determine a location right now. Check device location services.");
@@ -177,14 +294,17 @@ export default function App() {
           setXrError("The browser did not start a WebXR session. You can try 8th Wall AR.");
           return;
         }
+        isArActiveRef.current = true;
         setExperienceMode("webxr");
+        startRandomEncounter();
         session.addEventListener(
           "end",
-          () => setExperienceMode("idle"),
+          finishARSession,
           { once: true },
         );
         setXrError(null);
       } catch (error) {
+        isArActiveRef.current = false;
         console.error("Failed to start AR session:", error);
         setXrError(
           `Could not start WebXR AR: ${String(error)}. You can try 8th Wall AR.`,
@@ -194,48 +314,52 @@ export default function App() {
     }
 
     async function start8thWallSession() {
+      isArActiveRef.current = true;
       setExperienceMode("eightwall");
       setXrError(null);
-      setFoxPlacementStatus("Starting 8th Wall world tracking...");
+      setAnimalPlacementStatus("Starting 8th Wall world tracking...");
       await new Promise<void>((resolve) => {
         window.requestAnimationFrame(() => resolve());
       });
       const canvas = eightWallCanvasRef.current;
       if (!canvas) {
-        setExperienceMode("idle");
+        finishARSession();
         setXrError("Could not create the 8th Wall camera canvas.");
         return;
       }
+      startRandomEncounter();
       try {
         await startEightWall(
           canvas,
-          currentAnimalId === "mystical-fox",
+          selectedAnimalIdRef.current,
           debugEnabled,
-          setFoxPlacementStatus,
+          setAnimalPlacementStatus,
           (message) => {
             setXrError(message);
             stopEightWall();
-            setExperienceMode("idle");
+            finishARSession();
           },
+          startRandomEncounter,
+          confirmAnimalPlacement,
+          encounterNumberRef.current,
         );
       } catch (error) {
         console.error("Failed to start 8th Wall AR:", error);
         stopEightWall();
-        setExperienceMode("idle");
+        finishARSession();
         setXrError(`Could not start 8th Wall AR: ${String(error)}`);
       }
     }
 
     useEffect(() => {
-      setEightWallAnimalAvailable(currentAnimalId === "mystical-fox");
-    }, [currentAnimalId]);
+      setEightWallEncounterAnimal(selectedAnimalId, encounterNumber);
+    }, [selectedAnimalId, encounterNumber]);
 
     useEffect(() => () => stopEightWall(), []);
 
     function end8thWallSession() {
       stopEightWall();
-      setExperienceMode("idle");
-      setFoxPlacementStatus(null);
+      finishARSession();
     }
 
     async function checkMotionSensors() {
@@ -275,14 +399,17 @@ export default function App() {
 
     const currentTask =
       experienceMode === "webxr"
-        ? foxPlacementStatus ?? "AR is active. Looking for a suitable place to show the fox."
+        ? animalPlacementStatus ?? "AR is active. Looking for a suitable place to show an animal."
         : experienceMode === "eightwall"
-          ? foxPlacementStatus ?? "Starting camera tracking."
+          ? animalPlacementStatus ?? "Starting camera tracking."
           : xrSupported === null
             ? "Checking whether this browser supports AR."
             : xrError
               ? "AR could not start. You can try the 8th Wall option if it is available."
               : "Ready to start the AR experience.";
+    const currentAnimalName = experienceMode !== "idle" && currentAnimalId
+      ? getAnimalDefinition(currentAnimalId).name
+      : null;
 
     /*
      * Screen-space camera fallback, intentionally disabled while WebXR and
@@ -290,8 +417,8 @@ export default function App() {
      *
      * const [fallbackPosition, setFallbackPosition] =
      *   useState<[number, number] | null>(null);
-     * <div onPointerDown={placeFallbackFox}>
-     * function placeFallbackFox(event: PointerEvent<HTMLDivElement>) {
+     * <div onPointerDown={placeFallbackAnimal}>
+     * function placeFallbackAnimal(event: PointerEvent<HTMLDivElement>) {
      *   if (!(event.target instanceof HTMLCanvasElement)) return;
      *   const bounds = event.currentTarget.getBoundingClientRect();
      *   setFallbackPosition([
@@ -301,7 +428,7 @@ export default function App() {
      * }
      * Restore a camera preview using startCamera() and:
      * {fallbackPosition && (
-     *   <CameraFallbackFox screenPosition={fallbackPosition} />
+     *   <CameraFallbackAnimal animalId={currentAnimalId} screenPosition={fallbackPosition} />
      * )}
      * </div>
      * This is only screen-relative placement; it is not world-locked.
@@ -327,8 +454,15 @@ export default function App() {
         >
           <XR store={xrStore}>
             <RedWalls />
-            {currentAnimalId === "mystical-fox" && (
-              <MysticalFox onPlacementStatus={setFoxPlacementStatus} />
+            {selectedAnimalId && (
+              <AnimalEncounter
+                key={encounterNumber}
+                animalId={selectedAnimalId}
+                onPlacementStatus={setAnimalPlacementStatus}
+                onNewEncounter={startRandomEncounter}
+                encounterNumber={encounterNumber}
+                onPlaced={confirmAnimalPlacement}
+              />
             )}
           </XR>
         </Canvas>
@@ -386,7 +520,7 @@ export default function App() {
           aria-controls="troubleshooting-panel"
           onClick={() => setTroubleshootingOpen((open) => !open)}
         >
-          {troubleshootingOpen ? "Close help" : "Troubleshooting"}
+          {troubleshootingOpen ? "Close Help" : "Help"}
         </button>
         {troubleshootingOpen ? (
           <section
@@ -399,6 +533,24 @@ export default function App() {
             <p>{currentTask}</p>
             <h3>Location</h3>
             <p>{locationStatus}</p>
+            {currentAnimalName ? (
+              <>
+                <h3>Current encounter</h3>
+                <p>{currentAnimalName}</p>
+              </>
+            ) : null}
+            <h3>Previous encounters</h3>
+            {previousEncounters.length > 0 ? (
+              <ul>
+                {[...previousEncounters].reverse().map((animalId, index) => (
+                  <li key={`${animalId}-${index}`}>
+                    {getAnimalDefinition(animalId).name}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No previous encounters yet.</p>
+            )}
             {xrError ? (
               <>
                 <h3>AR issue</h3>
@@ -409,7 +561,19 @@ export default function App() {
             <ul>
               <li>AR starts only after you tap Start Game.</li>
               <li>The app tries WebXR first and can offer 8th Wall as a fallback.</li>
-              <li>The Mystical Fox appears when your location matches its campus area.</li>
+              <li>
+                Entering the Fox area starts a random animal encounter. Walking
+                at least {encounterRules.moveOnDistanceMeters} m starts another.
+              </li>
+              <li>
+                After a {Math.round(
+                  (encounterRules.cameraTurnThresholdRadians * 180) / Math.PI,
+                )}° camera turn and a{" "}
+                {encounterRules.cameraTurnCooldownMs / 1000}-second cooldown,
+                there is a{" "}
+                {Math.round(encounterRules.cameraTurnChance * 100)}% chance of
+                another encounter.
+              </li>
               <li>Allow camera and location access when prompted. Keep the camera aimed at a well-lit, textured surface while tracking starts.</li>
             </ul>
           </section>
@@ -456,7 +620,7 @@ export default function App() {
         >
           {experienceMode === "idle"
             ? locationStatus
-            : `${locationStatus}\n${foxPlacementStatus ?? "Starting AR..."}`}
+            : `${locationStatus}\n${animalPlacementStatus ?? "Starting AR..."}`}
         </p>
       ) : null}
       {experienceMode === "eightwall" ? (

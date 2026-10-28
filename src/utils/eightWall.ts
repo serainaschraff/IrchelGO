@@ -9,9 +9,10 @@ import {
   Vector3,
   type Camera,
   type Group,
+  type Material,
   type Scene,
 } from "three";
-import { createMysticalFoxModel } from "../components/mysticalFoxModel";
+import { encounterRules, getAnimalDefinition, type AnimalId } from "./animals";
 
 type EightWallHit = {
   type: string;
@@ -97,10 +98,16 @@ let runtimePromise: Promise<ReadyEightWallApi> | null = null;
 let pipelineInstalled = false;
 let activeScene: Scene | null = null;
 let activeCamera: Camera | null = null;
-let activeFox: Group | null = null;
+let activeAnimal: Group | null = null;
 let activeCanvas: HTMLCanvasElement | null = null;
-let animalAvailable = false;
+let activeAnimalId: AnimalId | null = null;
+let onAnimalPlaced: (animalId: AnimalId, encounterNumber: number) => void = () => {};
 let debugEnabled = false;
+let onNewEncounter: () => void = () => {};
+let encounterDirection: Vector3 | null = null;
+let cameraPanLatched = false;
+let lastCameraPanAttemptAt = 0;
+let lastEncounterNumber = 0;
 const MIN_HORIZONTAL_ALIGNMENT = 0.5;
 const DEBUG_MARKER_LIMIT = 36;
 const FEATURE_POINT_HISTORY_MS = 6000;
@@ -132,6 +139,7 @@ let lastTrackingState = "";
 let lastHitTestError = "";
 let debugMarkers: HitDebugMarker[] = [];
 let featurePointHistory: TrackedFeaturePoint[] = [];
+const cameraDirection = new Vector3();
 let onStatusChange: (status: string) => void = () => {};
 let onError: (message: string) => void = () => {};
 
@@ -322,6 +330,35 @@ function intersectAimRayWithHorizontalPlane(height: number) {
   };
 }
 
+function getCameraDirection() {
+  if (!activeCamera) return null;
+  activeCamera.getWorldDirection(cameraDirection);
+  return cameraDirection.clone();
+}
+
+function checkForCameraPan(now: number) {
+  if (!activeAnimal || encounterDirection === null) return;
+  const cameraDirection = getCameraDirection();
+  if (cameraDirection === null) return;
+
+  const turnAngle = encounterDirection.angleTo(cameraDirection);
+  if (turnAngle < encounterRules.cameraTurnResetRadians) {
+    cameraPanLatched = false;
+    return;
+  }
+  if (
+    turnAngle < encounterRules.cameraTurnThresholdRadians ||
+    cameraPanLatched
+  ) {
+    return;
+  }
+
+  cameraPanLatched = true;
+  if (now - lastCameraPanAttemptAt < encounterRules.cameraTurnCooldownMs) return;
+  lastCameraPanAttemptAt = now;
+  if (Math.random() < encounterRules.cameraTurnChance) onNewEncounter();
+}
+
 function findHorizontalFeatureEstimate(): HorizontalFeatureEstimate | undefined {
   let bestCluster: TrackedFeaturePoint[] = [];
   for (const anchor of featurePointHistory) {
@@ -495,9 +532,9 @@ function formatHitDiagnostics(
   const trackingSummary = trackingStatus
     ? `Tracking ${trackingStatus}${trackingReason ? ` (${trackingReason})` : ""}`
     : "Waiting for tracking status";
-  const placementAvailability = animalAvailable
-    ? "fox placement enabled"
-    : "fox placement paused until GPS matches the Mystical Fox area";
+  const placementAvailability = activeAnimalId
+    ? "animal encounter enabled"
+    : "animal encounter paused until GPS matches the Fox area";
 
   const surfaceSummary = bestSurfaceHit
     ? `Best actual surface: ${bestSurfaceHit.type}, ${Math.round((Math.acos(Math.min(1, bestHorizontalAlignment)) * 180) / Math.PI)}° from horizontal; ${bestHorizontalAlignment >= MIN_HORIZONTAL_ALIGNMENT ? "acceptable" : "too tilted (maximum allowed 60°)"}.`
@@ -509,8 +546,8 @@ function formatHitDiagnostics(
   return `${trackingSummary}. Hit test across ${samplePoints.length} camera points: ${hitSummary}. ${surfaceSummary} ${estimateSummary} ${placementAvailability}.`;
 }
 
-function placeFoxFromSurfaceHit(hit: EightWallHit, status: string) {
-  if (!animalAvailable || !activeScene || activeFox) return;
+function placeAnimalFromSurfaceHit(hit: EightWallHit, status: string) {
+  if (!activeAnimalId || !activeScene || activeAnimal) return;
 
   const rotation = new Quaternion(
     hit.rotation.x,
@@ -518,12 +555,32 @@ function placeFoxFromSurfaceHit(hit: EightWallHit, status: string) {
     hit.rotation.z,
     hit.rotation.w,
   );
-  const fox = createMysticalFoxModel();
-  fox.position.set(hit.position.x, hit.position.y + 0.005, hit.position.z);
-  fox.quaternion.copy(rotation);
-  activeScene.add(fox);
-  activeFox = fox;
+  const animal = getAnimalDefinition(activeAnimalId).createWorldModel();
+  animal.position.set(hit.position.x, hit.position.y + 0.005, hit.position.z);
+  animal.quaternion.copy(rotation);
+  activeScene.add(animal);
+  activeAnimal = animal;
+  encounterDirection = getCameraDirection();
+  cameraPanLatched = false;
+  lastCameraPanAttemptAt = performance.now();
+  onAnimalPlaced(activeAnimalId, lastEncounterNumber);
   onStatusChange(status);
+}
+
+function removeActiveAnimal() {
+  if (!activeAnimal) return;
+  activeScene?.remove(activeAnimal);
+  activeAnimal.traverse((object) => {
+    if (!(object instanceof Mesh)) return;
+    object.geometry.dispose();
+    const materials = Array.isArray(object.material)
+      ? object.material
+      : [object.material];
+    materials.forEach((material: Material) => material.dispose());
+  });
+  activeAnimal = null;
+  encounterDirection = null;
+  cameraPanLatched = false;
 }
 
 function installPipeline(api: ReadyEightWallApi) {
@@ -548,7 +605,9 @@ function installPipeline(api: ReadyEightWallApi) {
       directionalLight.name = "irchelgo-directional-light";
       activeScene.add(ambientLight, directionalLight);
       if (debugEnabled) installDebugMarkers(activeScene);
-      activeFox = null;
+      activeAnimal = null;
+      encounterDirection = null;
+      cameraPanLatched = false;
       featurePointHistory = [];
       lastHitTestAt = 0;
       lastDiagnosticAt = 0;
@@ -566,6 +625,7 @@ function installPipeline(api: ReadyEightWallApi) {
       }
 
       const now = performance.now();
+      checkForCameraPan(now);
       if (reality?.trackingStatus === "LIMITED") {
         const statusInterval = debugEnabled ? 1000 : 5000;
         if (now - lastDiagnosticAt >= statusInterval) {
@@ -581,11 +641,7 @@ function installPipeline(api: ReadyEightWallApi) {
         return;
       }
 
-      if (
-        !activeScene ||
-        activeFox ||
-        now - lastHitTestAt < 500
-      ) {
+      if (!activeScene || activeAnimal || !activeAnimalId || now - lastHitTestAt < 500) {
         return;
       }
 
@@ -641,16 +697,16 @@ function installPipeline(api: ReadyEightWallApi) {
       if (
         bestSurfaceHit &&
         bestHorizontalAlignment >= MIN_HORIZONTAL_ALIGNMENT &&
-        animalAvailable
+        activeAnimalId
       ) {
-        placeFoxFromSurfaceHit(
+        placeAnimalFromSurfaceHit(
           bestSurfaceHit,
-          "Fox placed on a horizontal surface near the center of your view.",
+          "Animal placed on a horizontal surface near the center of your view.",
         );
-      } else if (featureEstimate && animalAvailable) {
-        placeFoxFromSurfaceHit(
+      } else if (featureEstimate && activeAnimalId) {
+        placeAnimalFromSurfaceHit(
           featureEstimate.hit,
-          `Experimental plane estimated from ${featureEstimate.supportCount} feature points; fox placed along your view direction, ${featureEstimate.distanceFromCamera.toFixed(1)} m ahead at the approximate surface height.`,
+          `Experimental plane estimated from ${featureEstimate.supportCount} feature points; animal placed along your view direction, ${featureEstimate.distanceFromCamera.toFixed(1)} m ahead at the approximate surface height.`,
         );
       }
     },
@@ -676,14 +732,20 @@ function installPipeline(api: ReadyEightWallApi) {
 
 export async function startEightWall(
   canvas: HTMLCanvasElement,
-  animalIsAvailable: boolean,
+  animalId: AnimalId | null,
   showDebug: boolean,
   onStatus: (status: string) => void,
   onRuntimeError: (message: string) => void,
+  onEncounter: () => void,
+  onPlaced: (animalId: AnimalId, encounterNumber: number) => void,
+  encounterNumber: number,
 ) {
   onStatusChange = onStatus;
   onError = onRuntimeError;
-  animalAvailable = animalIsAvailable;
+  activeAnimalId = animalId;
+  onNewEncounter = onEncounter;
+  onAnimalPlaced = onPlaced;
+  lastEncounterNumber = encounterNumber;
   debugEnabled = showDebug;
 
   const api = await loadRuntime();
@@ -701,12 +763,16 @@ export async function startEightWall(
   });
 }
 
-export function setEightWallAnimalAvailable(available: boolean) {
-  animalAvailable = available;
-  if (!available && activeFox && activeScene) {
-    activeScene.remove(activeFox);
-    activeFox = null;
+export function setEightWallEncounterAnimal(
+  animalId: AnimalId | null,
+  encounterNumber: number,
+) {
+  const encounterChanged = encounterNumber !== lastEncounterNumber;
+  activeAnimalId = animalId;
+  if (encounterChanged || !animalId) {
+    removeActiveAnimal();
   }
+  lastEncounterNumber = encounterNumber;
 }
 
 export function stopEightWall() {
@@ -716,10 +782,12 @@ export function stopEightWall() {
   activeCanvas = null;
   featurePointHistory = [];
   removeDebugMarkers(activeScene);
-  if (activeFox && activeScene) activeScene.remove(activeFox);
+  removeActiveAnimal();
   activeScene = null;
   activeCamera = null;
-  activeFox = null;
-  animalAvailable = false;
+  activeAnimalId = null;
+  onNewEncounter = () => {};
+  onAnimalPlaced = () => {};
+  lastEncounterNumber = 0;
   debugEnabled = false;
 }

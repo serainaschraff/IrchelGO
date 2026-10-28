@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from "react";
 import {
   ConeGeometry,
   Group,
@@ -8,15 +9,16 @@ import {
   SphereGeometry,
   TorusGeometry,
 } from "three";
+import type { AnimalDefinition, AnimalModelProps } from "./types";
 
-const fur = "#c96d32";
-const cream = "#f5e5ca";
+const fur = "#eaf4f8";
+const cream = "#ffffff";
 const cocoa = "#392b2b";
-const earPink = "#db8190";
-const gold = "#ffc04c";
-const magicTeal = "#46d5cf";
+const earPink = "#a9d8e6";
+const gold = "#8ed9eb";
+const magicTeal = "#55c7e8";
 
-export function createMysticalFoxModel() {
+function createPolarFoxModel() {
   const fox = new Group();
   fox.scale.setScalar(0.3);
 
@@ -93,11 +95,7 @@ export function createMysticalFoxModel() {
 
   const collar = new Mesh(
     new TorusGeometry(0.19, 0.045, 8, 24),
-    new MeshStandardMaterial({
-      color: gold,
-      metalness: 0.55,
-      roughness: 0.34,
-    }),
+    new MeshStandardMaterial({ color: gold, metalness: 0.55, roughness: 0.34 }),
   );
   collar.position.set(0, 0.84, 0.32);
   collar.rotation.x = Math.PI / 2;
@@ -116,5 +114,63 @@ export function createMysticalFoxModel() {
   gem.scale.set(0.075, 0.09, 0.045);
   fox.add(gem);
 
+  const leftSparkle = new Mesh(
+    new OctahedronGeometry(1, 0),
+    new MeshStandardMaterial({
+      color: gold,
+      emissive: gold,
+      emissiveIntensity: 0.45,
+      metalness: 0.45,
+    }),
+  );
+  leftSparkle.position.set(-0.45, 1.43, 0.08);
+  leftSparkle.rotation.z = Math.PI / 4;
+  leftSparkle.scale.setScalar(0.055);
+  fox.add(leftSparkle);
+
+  const rightSparkle = new Mesh(
+    new OctahedronGeometry(1, 0),
+    new MeshStandardMaterial({
+      color: magicTeal,
+      emissive: magicTeal,
+      emissiveIntensity: 0.8,
+    }),
+  );
+  rightSparkle.position.set(0.43, 1.56, 0.18);
+  rightSparkle.rotation.z = Math.PI / 4;
+  rightSparkle.scale.setScalar(0.04);
+  fox.add(rightSparkle);
+
   return fox;
 }
+
+function PolarFoxModel({ position, rotation }: AnimalModelProps) {
+  const model = useMemo(createPolarFoxModel, []);
+  useEffect(
+    () => () => {
+      model.traverse((object) => {
+        if (!(object instanceof Mesh)) return;
+        object.geometry.dispose();
+        const materials = Array.isArray(object.material)
+          ? object.material
+          : [object.material];
+        materials.forEach((material) => material.dispose());
+      });
+    },
+    [model],
+  );
+  return (
+    <group position={position} rotation={rotation}>
+      <ambientLight intensity={1.5} />
+      <directionalLight position={[3, 5, 4]} intensity={2.2} />
+      <primitive object={model} />
+    </group>
+  );
+}
+
+export const polarFox: AnimalDefinition = {
+  id: "polar-fox",
+  name: "Polar Fox",
+  WebXRModel: PolarFoxModel,
+  createWorldModel: createPolarFoxModel,
+};
