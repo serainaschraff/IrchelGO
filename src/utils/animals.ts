@@ -1,5 +1,16 @@
 import { mysticalFox } from "../animals/mysticalFox";
 import { polarFox } from "../animals/polarFox";
+import { bearVariants } from "../animals/bear";
+import { butterflyVariants } from "../animals/butterfly";
+import { cowVariants } from "../animals/cow";
+import { dwarfVariants } from "../animals/dwarf";
+import { eagleVariants } from "../animals/eagle";
+import { hedgehogVariants } from "../animals/hedgehog";
+import { ibexVariants } from "../animals/ibex";
+import { lionVariants } from "../animals/lion";
+import { lizardVariants } from "../animals/lizard";
+import { pigVariants } from "../animals/pig";
+import { wolfVariants } from "../animals/wolf";
 import type { AnimalDefinition, AnimalId } from "../animals/types";
 
 export type {
@@ -11,6 +22,17 @@ export type {
 export const animalRegistry: readonly AnimalDefinition[] = [
   mysticalFox,
   polarFox,
+  ...ibexVariants,
+  ...wolfVariants,
+  ...butterflyVariants,
+  ...pigVariants,
+  ...bearVariants,
+  ...cowVariants,
+  ...lionVariants,
+  ...lizardVariants,
+  ...eagleVariants,
+  ...hedgehogVariants,
+  ...dwarfVariants,
 ];
 
 export const encounterRules = {
