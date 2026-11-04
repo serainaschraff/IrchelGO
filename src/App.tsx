@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   findGeoJSONFeatureAtLocation,
   getGeolocation,
@@ -27,6 +27,7 @@ type AnimalAreaProperties = {
   areaId: string;
   areaName: string;
   animals: AnimalId[];
+  cantonISO?: string;
 };
 
 function isAnimalAreaProperties(
@@ -42,7 +43,8 @@ function isAnimalAreaProperties(
       "animals" in value &&
       Array.isArray(value.animals) &&
       value.animals.length > 0 &&
-      value.animals.every(isAnimalId))
+      value.animals.every(isAnimalId) &&
+      (!("cantonISO" in value) || typeof value.cantonISO === "string"))
   );
 }
 
@@ -81,6 +83,7 @@ export default function App() {
     const [animalPlacementStatus, setAnimalPlacementStatus] = useState<string | null>(null);
     const [locationStatus, setLocationStatus] = useState("Loading animal areas...");
     const [troubleshootingOpen, setTroubleshootingOpen] = useState(false);
+    const [debugEvents, setDebugEvents] = useState<string[]>([]);
     const selectedAnimalIdRef = useRef<AnimalId | null>(null);
     const currentAnimalIdRef = useRef<AnimalId | null>(null);
     const encounterNumberRef = useRef(0);
@@ -90,6 +93,16 @@ export default function App() {
     const currentAreaIdRef = useRef<string | null>(null);
     const latestPlayerPosition = useRef<GeolocationCoordinates | null>(null);
     const lastEncounterPosition = useRef<GeolocationCoordinates | null>(null);
+    const lastEightWallStatusRef = useRef<string | null>(null);
+    const lastGpsDebugAreaRef = useRef<string | null>(null);
+
+    const recordDebugEvent = useCallback((message: string) => {
+      if (!debugEnabled) return;
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = `[${timestamp}] ${message}`;
+      console.info(`[IrchelGO debug] ${entry}`);
+      setDebugEvents((events) => [...events.slice(-149), entry]);
+    }, []);
 
     function recordPreviousEncounter(animalId: AnimalId) {
       const updatedEncounters = [...previousEncountersRef.current, animalId];
@@ -140,6 +153,7 @@ export default function App() {
     }
 
     function finishARSession() {
+      recordDebugEvent("AR: session closed; encounter state cleared.");
       isArActiveRef.current = false;
       archiveCurrentEncounter();
       clearSelectedAnimal();
@@ -213,6 +227,12 @@ export default function App() {
                 latestPlayerPosition.current = coords;
 
                 if (!feature?.properties) {
+                  if (debugEnabled && lastGpsDebugAreaRef.current !== "outside") {
+                    lastGpsDebugAreaRef.current = "outside";
+                    recordDebugEvent(
+                      `GPS: outside all animal areas; accuracy=${Math.round(coords.accuracy)}m`,
+                    );
+                  }
                   if (currentAreaIdRef.current !== null) {
                     currentAreaIdRef.current = null;
                     animalPoolRef.current = [];
@@ -227,6 +247,13 @@ export default function App() {
                 }
 
                 const { areaId, areaName, animals } = feature.properties;
+                if (debugEnabled && lastGpsDebugAreaRef.current !== areaId) {
+                  lastGpsDebugAreaRef.current = areaId;
+                  recordDebugEvent(
+                    `GPS: area=${areaName} (${areaId}), canton=${feature.properties.cantonISO ?? "unknown"}, ` +
+                      `accuracy=${Math.round(coords.accuracy)}m, animalPool=${animals.join(",")}`,
+                  );
+                }
                 if (currentAreaIdRef.current !== areaId) {
                   currentAreaIdRef.current = areaId;
                   animalPoolRef.current = animals;
@@ -289,29 +316,44 @@ export default function App() {
             getGeolocation().clearWatch(watchId);
           }
         };
-    }, []);
+    }, [recordDebugEvent]);
 
     async function startARSession() {
+      recordDebugEvent("WebXR: start requested.");
       try {
         if (!navigator.xr || !await navigator.xr.isSessionSupported("immersive-ar")) {
+          recordDebugEvent("WebXR: immersive-ar is not supported by this browser/device.");
           setXrError("WebXR AR is unavailable in this browser. Start 8th Wall AR instead.");
           return;
         }
+        recordDebugEvent("WebXR: immersive-ar is supported; requesting session.");
         const session = await xrStore.enterAR();
         if (!session) {
+          recordDebugEvent("WebXR: enterAR returned no session.");
           setXrError("The browser did not start a WebXR session. You can try 8th Wall AR.");
           return;
         }
+        recordDebugEvent(
+          `WebXR: session started; requestedMode=immersive-ar, visibility=${session.visibilityState}, ` +
+            `blend=${session.environmentBlendMode}, enabledFeatures=${session.enabledFeatures?.join(",") ?? "not reported"}.`,
+        );
+        session.addEventListener("visibilitychange", () => {
+          recordDebugEvent(`WebXR: visibility changed to ${session.visibilityState}.`);
+        });
         isArActiveRef.current = true;
         setExperienceMode("webxr");
         startRandomEncounter();
         session.addEventListener(
           "end",
-          finishARSession,
+          () => {
+            recordDebugEvent("WebXR: session end event received.");
+            finishARSession();
+          },
           { once: true },
         );
         setXrError(null);
       } catch (error) {
+        recordDebugEvent(`WebXR: startup failed: ${String(error)}`);
         isArActiveRef.current = false;
         console.error("Failed to start AR session:", error);
         setXrError(
@@ -322,6 +364,8 @@ export default function App() {
     }
 
     async function start8thWallSession() {
+      recordDebugEvent("8th Wall: start requested.");
+      lastEightWallStatusRef.current = null;
       isArActiveRef.current = true;
       setExperienceMode("eightwall");
       setXrError(null);
@@ -331,6 +375,7 @@ export default function App() {
       });
       const canvas = eightWallCanvasRef.current;
       if (!canvas) {
+        recordDebugEvent("8th Wall: camera canvas was not available.");
         finishARSession();
         setXrError("Could not create the 8th Wall camera canvas.");
         return;
@@ -341,8 +386,15 @@ export default function App() {
           canvas,
           animalId: selectedAnimalIdRef.current,
           showDebug: debugEnabled,
-          onStatus: setAnimalPlacementStatus,
+          onStatus: (status) => {
+            setAnimalPlacementStatus(status);
+            if (debugEnabled && status !== lastEightWallStatusRef.current) {
+              lastEightWallStatusRef.current = status;
+              recordDebugEvent(`8th Wall: ${status}`);
+            }
+          },
           onRuntimeError: (message) => {
+            recordDebugEvent(`8th Wall: runtime error: ${message}`);
             setXrError(message);
             stopEightWall();
             finishARSession();
@@ -352,6 +404,7 @@ export default function App() {
           encounterNumber: encounterNumberRef.current,
         });
       } catch (error) {
+        recordDebugEvent(`8th Wall: startup failed: ${String(error)}`);
         console.error("Failed to start 8th Wall AR:", error);
         stopEightWall();
         finishARSession();
@@ -366,6 +419,7 @@ export default function App() {
     useEffect(() => () => stopEightWall(), []);
 
     function end8thWallSession() {
+      recordDebugEvent("8th Wall: Stop AR requested.");
       stopEightWall();
       finishARSession();
     }
@@ -380,6 +434,15 @@ export default function App() {
         setMotionSensorStatus(`Motion sensor check failed: ${String(error)}`);
       } finally {
         setCheckingMotionSensors(false);
+      }
+    }
+
+    async function copyDebugLog() {
+      try {
+        await navigator.clipboard.writeText(debugEvents.join("\n"));
+        recordDebugEvent("Debug log copied to clipboard.");
+      } catch (error) {
+        recordDebugEvent(`Could not copy debug log: ${String(error)}`);
       }
     }
 
@@ -466,6 +529,8 @@ export default function App() {
               <AnimalEncounter
                 key={encounterNumber}
                 animalId={selectedAnimalId}
+                debugEnabled={debugEnabled}
+                onDebug={recordDebugEvent}
                 onPlacementStatus={setAnimalPlacementStatus}
                 onNewEncounter={startRandomEncounter}
                 encounterNumber={encounterNumber}
@@ -595,6 +660,21 @@ export default function App() {
         >
           {arPathStatus}
         </p>
+      ) : null}
+      {debugEnabled ? (
+        <section className="debug-log-panel" aria-label="AR debug log">
+          <div className="debug-log-header">
+            <strong>AR debug log</strong>
+            <button type="button" onClick={() => void copyDebugLog()}>
+              Copy log
+            </button>
+          </div>
+          <pre aria-live="polite">
+            {debugEvents.length > 0
+              ? [...debugEvents].reverse().join("\n")
+              : "Debug events will appear here. During immersive AR, the browser may hide page UI; diagnostics are also written to the browser console."}
+          </pre>
+        </section>
       ) : null}
       {experienceMode === "idle" ? (
         <>

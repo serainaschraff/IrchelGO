@@ -66,7 +66,7 @@ Run commands from the repository root:
 - `npm run build` — TypeScript compilation followed by the Vite production build.
 - `npm run preview` — preview the production build.
 
-When testing diagnostics, append `?debug=1` to the URL. The default view hides developer-only AR, camera, motion-sensor, and 8th Wall hit-test details.
+When testing diagnostics, append `?debug=1` to the URL. The default view hides developer-only diagnostics. In WebXR debug mode, session lifecycle and throttled hit-test samples (hit/pose counts, pose distances, surface orientation, and placement decision) are written to the browser console and retained in the on-page debug log for copying after immersive AR ends. The browser may hide page UI during immersive AR because this app does not request a DOM overlay.
 
 For localtunnel testing, run the dev server and tunnel in separate terminals. Vite is configured to allow generated `.loca.lt` subdomains and to fail rather than switch away from port 5173. This is a local-development workaround for browser APIs that need a secure context; it is not part of deployment.
 

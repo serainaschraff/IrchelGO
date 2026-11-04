@@ -11,7 +11,9 @@ import {
 type AnimalEncounterProps = {
   animalId: AnimalId;
   encounterNumber: number;
+  debugEnabled: boolean;
   onPlacementStatus: (status: string | null) => void;
+  onDebug: (message: string) => void;
   onNewEncounter: () => void;
   onPlaced: (animalId: AnimalId, encounterNumber: number) => void;
 };
@@ -32,7 +34,9 @@ const cameraDirection = new Vector3();
 export default function AnimalEncounter({
   animalId,
   encounterNumber,
+  debugEnabled,
   onPlacementStatus,
+  onDebug,
   onNewEncounter,
   onPlaced,
 }: AnimalEncounterProps) {
@@ -43,6 +47,7 @@ export default function AnimalEncounter({
   const lastStatus = useRef<string | null>(null);
   const encounterDirection = useRef<Vector3 | null>(null);
   const cameraPanState = useRef({ latched: false, lastAttemptAt: 0 });
+  const lastDebugAt = useRef(0);
 
   function getCameraDirection() {
     camera.getWorldDirection(cameraDirection);
@@ -55,15 +60,28 @@ export default function AnimalEncounter({
     onPlacementStatus(status);
   }
 
+  function reportHitTestDebug(summary: string, force = false) {
+    if (!debugEnabled) return;
+    const now = performance.now();
+    if (!force && now - lastDebugAt.current < 1000) {
+      return;
+    }
+    lastDebugAt.current = now;
+    onDebug(summary);
+  }
+
   useEffect(() => {
     const status = "Scanning for a horizontal surface to place the animal...";
     lastStatus.current = status;
     onPlacementStatus(status);
+    if (debugEnabled) {
+      onDebug(`WebXR: placement scan started for animal=${animalId}, encounter=${encounterNumber}.`);
+    }
     return () => {
       lastStatus.current = null;
       onPlacementStatus(null);
     };
-  }, [animalId, onPlacementStatus]);
+  }, [animalId, debugEnabled, encounterNumber, onDebug, onPlacementStatus]);
 
   useEffect(() => {
     if (!placement || hasReportedPlacement.current) return;
@@ -74,43 +92,66 @@ export default function AnimalEncounter({
   useXRHitTest(
     (results, getWorldMatrix) => {
       if (hasPlacement.current) return;
+      camera.getWorldPosition(viewerPosition);
+      let usablePoseCount = 0;
+      let horizontalCandidateCount = 0;
+      let placementCandidate: AnimalPlacement | null = null;
+      const candidates: string[] = [];
+
+      for (const result of results) {
+        if (!getWorldMatrix(hitMatrix, result)) {
+          if (candidates.length < 5) candidates.push("unavailable pose");
+          continue;
+        }
+
+        usablePoseCount += 1;
+        hitMatrix.decompose(hitPosition, hitQuaternion, hitScale);
+        surfaceUp.set(0, 1, 0).applyQuaternion(hitQuaternion);
+        const distance = viewerPosition.distanceTo(hitPosition);
+        const horizontal = Math.abs(surfaceUp.y) >= 0.9;
+        if (horizontal) horizontalCandidateCount += 1;
+        if (candidates.length < 5) {
+          candidates.push(
+            `d=${distance.toFixed(2)}m upY=${surfaceUp.y.toFixed(2)} ` +
+              `at=(${hitPosition.x.toFixed(2)},${hitPosition.y.toFixed(2)},${hitPosition.z.toFixed(2)})` +
+              (horizontal ? " horizontal" : " rejected: tilted"),
+          );
+        }
+        if (horizontal && placementCandidate === null) {
+          placementCandidate = {
+            position: [hitPosition.x, hitPosition.y + 0.005, hitPosition.z],
+            yaw: Math.atan2(
+              viewerPosition.x - hitPosition.x,
+              viewerPosition.z - hitPosition.z,
+            ),
+          };
+        }
+      }
+
       if (results.length === 0) {
         updateStatus(
           "No plane hits yet. Slowly scan the area and point the camera toward the floor.",
         );
-        return;
-      }
-
-      let foundUsablePose = false;
-      for (const result of results) {
-        if (!getWorldMatrix(hitMatrix, result)) continue;
-
-        foundUsablePose = true;
-        hitMatrix.decompose(hitPosition, hitQuaternion, hitScale);
-        surfaceUp.set(0, 1, 0).applyQuaternion(hitQuaternion);
-        if (Math.abs(surfaceUp.y) < 0.9) continue;
-
-        camera.getWorldPosition(viewerPosition);
-        const yaw = Math.atan2(
-          viewerPosition.x - hitPosition.x,
-          viewerPosition.z - hitPosition.z,
-        );
-
+      } else if (placementCandidate) {
         hasPlacement.current = true;
         encounterDirection.current = getCameraDirection();
         cameraPanState.current.lastAttemptAt = performance.now();
-        setPlacement({
-          position: [hitPosition.x, hitPosition.y + 0.005, hitPosition.z],
-          yaw,
-        });
+        setPlacement(placementCandidate);
         updateStatus("Animal placed on a detected horizontal surface.");
-        return;
+      } else {
+        updateStatus(
+          usablePoseCount > 0
+            ? "A surface was detected, but it is not horizontal enough. Point the camera toward a level floor or table."
+            : "Plane hits were returned, but no usable surface pose is available. Scan the area again.",
+        );
       }
 
-      updateStatus(
-        foundUsablePose
-          ? "A surface was detected, but it is not horizontal enough. Point the camera toward a level floor or table."
-          : "Plane hits were returned, but no usable surface pose is available. Scan the area again.",
+      reportHitTestDebug(
+        `WebXR hit-test: hits=${results.length}, usablePoses=${usablePoseCount}, ` +
+          `horizontalCandidates=${horizontalCandidateCount}, status=${lastStatus.current ?? "unknown"}, ` +
+          `viewer=(${viewerPosition.x.toFixed(2)},${viewerPosition.y.toFixed(2)},${viewerPosition.z.toFixed(2)}), ` +
+          `candidates=[${candidates.join("; ")}]`,
+        placementCandidate !== null,
       );
     },
     "viewer",

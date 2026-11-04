@@ -1140,3 +1140,63 @@ Moved the project architecture, commands, AR/device behavior, deployment informa
 Replaced the single-canton GeoJSON with 26 simplified canton boundaries and assigned the requested animal to each canton. The user's `AS` is represented by the official ISO canton code `AR` for Appenzell Ausserrhoden. Every canton has two encounter variants. Added 22 non-fox variants across 11 species modules; the existing Mystical Fox and Polar Fox remain the two Fox variants. Animal models use shared stylized geometry with species-specific forms and distinct names/color palettes.
 
 **Validation:** `npm run build` passed (with the existing large-chunk advisory). Checks confirmed 26 unique canton polygons with closed rings, all 24 referenced animal variants have unique registered IDs and names, the local server returns the updated map, and `git diff --check` passes. AR placement was not tested on physical devices.
+
+## Turn 77
+
+### User
+
+1. create a read.me
+
+2. what is the distance chosen for WebXR to place animals?
+
+3. could it be that if there is a perimeter drawn in the VR, that it is impossible to place the animal outside this parameter?
+
+### Assistant
+
+Created `README.md` with project overview, setup/build instructions, animal-map information, deployment guidance, and AR troubleshooting.
+
+WebXR has no fixed placement distance in this app. It places the animal at the first returned plane hit that passes the horizontal-surface check (`abs(surfaceUp.y) >= 0.9`); there is no app-level maximum distance or perimeter check.
+
+The device/runtime can still return hits only within its tracked area. If by “perimeter” you mean a headset guardian or play-area boundary, that can constrain tracking or warn/restrict use outside the defined area, so placement may be unavailable beyond it. This is separate from the GPS canton/animal polygons, which determine which animal can appear, not where AR placement is allowed. Physical-device behavior depends on the headset/runtime.
+
+**Validation:** `npm run build` and `git diff --check` passed.
+
+## Turn 78
+
+### User
+
+is there a possibility to force the hit test to be done within the play area boundary?
+
+### Assistant
+
+The app cannot force the WebXR runtime's hit-test engine to operate only inside a headset boundary. It can filter returned hit poses and place the animal only when the pose falls within a boundary polygon.
+
+WebXR defines an optional `bounded-floor` reference space with `boundsGeometry`, but support is limited and runtimes may reject it, especially in mobile immersive AR. This app currently uses the viewer-based hit-test path and does not request or inspect `bounded-floor`. If the runtime exposes it, the app could read its polygon and test each hit position before placement; otherwise it would need an app-defined boundary. This would restrict placement, not cause the runtime to generate additional hits inside the boundary.
+
+## Turn 79
+
+### User
+
+The issue I encountered is the following:
+- I was playing indoors -> not a lot of room
+- at first there was no play boundary set, and there was a hit, further away from the player
+- then the play boundary was set (approx 3m x 3m) and there were no longer any hits
+
+### Assistant
+
+That sequence is consistent with the earlier hit being on a surface outside the headset's newly established tracked/play area, or with the boundary setup causing the headset to reset/relocalize its room map. It does not show that the app itself applies a 3 m boundary: WebXR placement accepts returned plane hits without checking distance or play-area bounds, and the runtime controls which hits it returns.
+
+To isolate it, set the boundary before starting/restarting the app's AR session, then scan a floor or table well inside the 3 m × 3 m area with the camera pointed down. The Help placement status distinguishes “No plane hits yet” from hits that were returned but rejected as insufficiently horizontal or unusable. If there are still no hits inside the area, tracking/plane detection may not have recovered after the boundary change; restarting the XR session and rescanning can help test that. Exact behavior depends on the headset and browser/runtime.
+
+## Turn 80
+
+### User
+
+1. I restarted the AR session several times, but the problem persisted.
+2. Even with the debug flag enabled, there was no debug information available once the AR session started, and once the AR session was closed there was no additional information available in the browser. Can debug information be added only when the debug flag is active?
+
+### Assistant
+
+Added WebXR diagnostics gated by `?debug=1`. During the session, the browser console receives session lifecycle and throttled hit-test samples, including hit/pose counts, hit distance and position, surface orientation, and placement status. The debug panel retains up to 150 events after the session ends and includes a button to copy the log. When debug mode is off, the diagnostics and panel are hidden.
+
+The browser may hide page UI during immersive AR because the app does not request a WebXR DOM overlay, so the in-session console output may require remote browser debugging. The retained on-page log is available after exiting AR. `npm.cmd run build` passed, and the focused diff check passed for source, documentation, and transcript files. The full diff check flags a carriage return on a generated `dist/index.html` line. The exact hit-test behavior still needs to be checked on the target headset.
