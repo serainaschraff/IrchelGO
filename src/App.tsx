@@ -7,7 +7,7 @@ import {
 import { RedWalls } from "./components/RedWalls";
 import AnimalEncounter from "./components/AnimalEncounter";
 import { Canvas } from "@react-three/fiber";
-import { createXRStore, XR } from "@react-three/xr";
+import { createXRStore, XR, XRDomOverlay, useXR } from "@react-three/xr";
 import {
   setEightWallEncounterAnimal,
   startEightWall,
@@ -22,6 +22,9 @@ import {
   isAnimalId,
   type AnimalId,
 } from "./utils/animals";
+import LocationNotFound from "./components/LocationNotFound";
+import { summarizeDebugEvents } from "./utils/debugLog";
+import { getARStartMode } from "./utils/runtimeOptions";
 
 type AnimalAreaProperties = {
   areaId: string;
@@ -54,18 +57,71 @@ const xrStore = createXRStore({
   handTracking: false,
   layers: false,
   meshDetection: false,
-  domOverlay: false,
+  domOverlay: true,
   planeDetection: true,
   hitTest: true,
 });
 
 const debugEnabled =
   new URLSearchParams(window.location.search).get("debug") === "1";
+const forceEightWallEnabled =
+  new URLSearchParams(window.location.search).get("force8thwall") === "1";
 const outsideModeEnabled =
   new URLSearchParams(window.location.search).get("outside") === "1";
 const moveOnDistanceMeters = outsideModeEnabled
   ? 25
   : encounterRules.moveOnDistanceMeters;
+
+function WebXRDomOverlay({
+  debug,
+  locationPermissionDenied,
+  animalPlacementStatus,
+  debugEvents,
+}: {
+  debug: boolean;
+  locationPermissionDenied: boolean;
+  animalPlacementStatus: string | null;
+  debugEvents: string[];
+}) {
+  const planes = useXR((state) => state.detectedPlanes);
+  const horizontalPlaneCount = planes.filter(
+    (plane) => plane.orientation === "horizontal",
+  ).length;
+  const verticalPlaneCount = planes.filter(
+    (plane) => plane.orientation === "vertical",
+  ).length;
+  const labelledWallCount = planes.filter(
+    (plane) => plane.semanticLabel === "wall",
+  ).length;
+  const latestHitTest = debugEvents
+    .slice()
+    .reverse()
+    .find((event) => event.includes("WebXR hit-test:"));
+  const hitTestSummary = latestHitTest?.replace(/^\[[^\]]+\]\s*/, "");
+
+  if (!debug && !locationPermissionDenied) return null;
+
+  return (
+    <XRDomOverlay>
+      <div className="xr-dom-overlay">
+        {locationPermissionDenied ? <LocationNotFound /> : null}
+        {debug ? (
+          <section className="xr-live-debug" aria-label="Live WebXR diagnostics">
+            <strong>WebXR live diagnostics</strong>
+            <p>
+              Planes: {planes.length} (horizontal {horizontalPlaneCount}, vertical{" "}
+              {verticalPlaneCount})
+              <br />
+              Walls labelled: {labelledWallCount}
+            </p>
+            <p>Placement: {animalPlacementStatus ?? "Waiting for an animal scan."}</p>
+            {hitTestSummary ? <p>{hitTestSummary}</p> : null}
+          </section>
+        ) : null}
+      </div>
+    </XRDomOverlay>
+  );
+}
 
 export default function App() {
     const eightWallCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -82,6 +138,7 @@ export default function App() {
     const [encounterNumber, setEncounterNumber] = useState(0);
     const [animalPlacementStatus, setAnimalPlacementStatus] = useState<string | null>(null);
     const [locationStatus, setLocationStatus] = useState("Loading animal areas...");
+    const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
     const [troubleshootingOpen, setTroubleshootingOpen] = useState(false);
     const [debugEvents, setDebugEvents] = useState<string[]>([]);
     const selectedAnimalIdRef = useRef<AnimalId | null>(null);
@@ -225,6 +282,7 @@ export default function App() {
               ({ coords }) => {
                 const feature = findGeoJSONFeatureAtLocation(data, coords);
                 latestPlayerPosition.current = coords;
+                setLocationPermissionDenied(false);
 
                 if (!feature?.properties) {
                   if (debugEnabled && lastGpsDebugAreaRef.current !== "outside") {
@@ -278,6 +336,8 @@ export default function App() {
               (error) => {
                 console.error("Could not get player location:", error);
                 if (error.code === 1) {
+                  setLocationPermissionDenied(true);
+                  recordDebugEvent("GPS: location permission was denied.");
                   currentAreaIdRef.current = null;
                   animalPoolRef.current = [];
                   lastEncounterPosition.current = null;
@@ -439,7 +499,7 @@ export default function App() {
 
     async function copyDebugLog() {
       try {
-        await navigator.clipboard.writeText(debugEvents.join("\n"));
+        await navigator.clipboard.writeText(summarizeDebugEvents(debugEvents).reverse().join("\n"));
         recordDebugEvent("Debug log copied to clipboard.");
       } catch (error) {
         recordDebugEvent(`Could not copy debug log: ${String(error)}`);
@@ -447,16 +507,17 @@ export default function App() {
     }
 
     function startGame() {
-      if (xrSupported === null) return;
-      if (xrSupported) {
-        void startARSession();
-      } else {
+      const startMode = getARStartMode(forceEightWallEnabled, xrSupported);
+      if (startMode === "eightwall") {
         void start8thWallSession();
+        return;
       }
+      if (startMode === "webxr") void startARSession();
     }
 
-    const arPathStatus =
-      experienceMode === "webxr"
+    const arPathStatus = forceEightWallEnabled
+      ? "AR path: forced 8th Wall mode is enabled."
+      : experienceMode === "webxr"
         ? "AR path: WebXR (primary) is active."
         : experienceMode === "eightwall"
           ? "AR path: 8th Wall (fallback) is active or starting."
@@ -514,6 +575,9 @@ export default function App() {
           alt="The Mystical Fox overlooking a moonlit campus garden"
         />
       ) : null}
+      {locationPermissionDenied && experienceMode !== "webxr" ? (
+        <LocationNotFound />
+      ) : null}
       {experienceMode !== "eightwall" ? (
         <Canvas
           style={{
@@ -525,6 +589,12 @@ export default function App() {
         >
           <XR store={xrStore}>
             <RedWalls />
+            <WebXRDomOverlay
+              debug={debugEnabled}
+              locationPermissionDenied={locationPermissionDenied}
+              animalPlacementStatus={animalPlacementStatus}
+              debugEvents={debugEvents}
+            />
             {selectedAnimalId && (
               <AnimalEncounter
                 key={encounterNumber}
@@ -561,11 +631,11 @@ export default function App() {
             className="start-game-button"
             type="button"
             onClick={startGame}
-            disabled={xrSupported === null}
+            disabled={!forceEightWallEnabled && xrSupported === null}
           >
-            Start Game!
+            {forceEightWallEnabled ? "Start 8th Wall AR" : "Start Game!"}
           </button>
-          {xrSupported === null ? (
+          {xrSupported === null && !forceEightWallEnabled ? (
             <p className="welcome-hint">Checking AR support…</p>
           ) : null}
         </section>
@@ -671,7 +741,7 @@ export default function App() {
           </div>
           <pre aria-live="polite">
             {debugEvents.length > 0
-              ? [...debugEvents].reverse().join("\n")
+              ? summarizeDebugEvents(debugEvents).reverse().join("\n")
               : "Debug events will appear here. During immersive AR, the browser may hide page UI; diagnostics are also written to the browser console."}
           </pre>
         </section>

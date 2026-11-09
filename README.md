@@ -39,10 +39,13 @@ Open the HTTPS URL printed by LocalTunnel. Keep the Vite server running in the f
 
 ```sh
 npm run build
+npm test
 npm run preview
 ```
 
-The production build is written to `dist/`. The project has no configured automated test or lint runner; the build performs TypeScript compilation and creates the Vite bundle.
+The easiest way to run the test suite is `npm test` from the project root (or `npm.cmd test` in PowerShell if script execution blocks `npm`). It runs all Vitest tests under `tests/`. These cover deterministic application logic and selected UI; they do not simulate or validate real device camera access, GPS permissions, WebXR tracking, or 8th Wall world tracking.
+
+The production build is written to `dist/`.
 
 ## Animal areas and variants
 
@@ -56,7 +59,9 @@ In WebXR mode, the app uses a viewer-based plane hit test. It places the animal 
 
 For devices without a usable WebXR path, the app can use the separate 8th Wall tracking pipeline. Keep its camera pipeline separate from WebXR.
 
-Use the **Help** panel for user-facing status. Append `?debug=1` to the URL to show developer diagnostics. In WebXR, hit-test samples and session lifecycle details are also logged to the browser console; a bounded on-page log remains available after leaving immersive AR and can be copied from the debug panel. `?outside=1` changes the GPS move-on distance from 10 m to 25 m; it does not change the AR placement distance.
+Use the **Help** panel for user-facing status. Append `?debug=1` to show developer diagnostics; in supported handheld WebXR browsers, a live overlay reports horizontal planes, vertical planes/walls, and hit-test status while AR is active. The on-page log condenses consecutive no-hit samples into a timestamp range and can be copied after leaving AR. Add `?force8thwall=1` to start 8th Wall instead of WebXR. `?outside=1` changes the GPS move-on distance from 10 m to 25 m; it does not change the AR placement distance.
+
+If location permission is denied, the app displays the **Location not found!** indicator with a rotating crossed-out location pin and a reminder to allow access.
 
 AR behavior depends on the device, browser, permissions, lighting, and detected surfaces. A successful build does not verify camera access, tracking quality, or placement on a physical device.
 

@@ -64,9 +64,12 @@ Run commands from the repository root:
 - `npm run dev -- --host` — Vite dev server accessible on the local network.
 - `npx localtunnel --port 5173` — optional HTTPS tunnel for browser/device permission testing.
 - `npm run build` — TypeScript compilation followed by the Vite production build.
+- `npm test` — run all Vitest unit and component tests in `tests/` (`npm.cmd test` in PowerShell if `npm` is blocked by the execution policy).
 - `npm run preview` — preview the production build.
 
-When testing diagnostics, append `?debug=1` to the URL. The default view hides developer-only diagnostics. In WebXR debug mode, session lifecycle and throttled hit-test samples (hit/pose counts, pose distances, surface orientation, and placement decision) are written to the browser console and retained in the on-page debug log for copying after immersive AR ends. The browser may hide page UI during immersive AR because this app does not request a DOM overlay.
+When testing diagnostics, append `?debug=1` to the URL. The default view hides developer-only diagnostics. In supported handheld WebXR browsers, the optional DOM overlay shows live horizontal/vertical plane and wall counts plus placement and hit-test status. Session lifecycle and throttled hit-test samples are written to the browser console and retained in a copyable log; consecutive no-hit samples are condensed into a timestamp range. DOM overlay support is device/browser dependent.
+
+Use `?force8thwall=1` to make the Start button launch 8th Wall directly instead of selecting WebXR. If geolocation permission is denied, the **Location not found!** indicator appears with a rotating crossed-out location pin and an access reminder.
 
 For localtunnel testing, run the dev server and tunnel in separate terminals. Vite is configured to allow generated `.loca.lt` subdomains and to fail rather than switch away from port 5173. This is a local-development workaround for browser APIs that need a secure context; it is not part of deployment.
 
@@ -76,7 +79,7 @@ Android USB debugging notes:
 2. Run `adb reverse tcp:5173 tcp:5173`.
 3. Use Firefox `about:debugging#/setup` to inspect Android remote debugging.
 
-There is no dedicated test runner or lint script configured. The normal regression check is `npm run build`; `git diff --check` is also useful for text/source edits. If tests are added, use the chosen framework's focused test command.
+The test suite covers animal registry and encounter logic, GeoJSON location matching, AR path selection, debug-log summaries, and the denied-location indicator. It cannot verify real camera/GPS permission prompts, WebXR plane tracking, or 8th Wall world tracking; validate those on supported physical devices. There is no separate lint script configured.
 
 ## Deployment
 

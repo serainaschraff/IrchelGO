@@ -1200,3 +1200,57 @@ To isolate it, set the boundary before starting/restarting the app's AR session,
 Added WebXR diagnostics gated by `?debug=1`. During the session, the browser console receives session lifecycle and throttled hit-test samples, including hit/pose counts, hit distance and position, surface orientation, and placement status. The debug panel retains up to 150 events after the session ends and includes a button to copy the log. When debug mode is off, the diagnostics and panel are hidden.
 
 The browser may hide page UI during immersive AR because the app does not request a WebXR DOM overlay, so the in-session console output may require remote browser debugging. The retained on-page log is available after exiting AR. `npm.cmd run build` passed, and the focused diff check passed for source, documentation, and transcript files. The full diff check flags a carriage return on a generated `dist/index.html` line. The exact hit-test behavior still needs to be checked on the target headset.
+
+## Turn 81
+
+### User
+
+1. Add another flag such that forcing 8th Wall is possible.
+2. Even if there is a log after the fact, there is still no debug info available when in WebXR mode with the phone. If possible, add visible debug info like plane detection or wall detection.
+3. Condense the debug log after the WebXR session, such that there is less repeated text; for example, summarize the timestamps.
+4. Add a "Location not found!" animal that can be displayed if the user did not allow location sharing. Design this "animal" with a spinning crossed-out location icon and the static text "allow location access for a full experience" displayed in front of it.
+
+The user provided a sample WebXR log showing repeated zero-hit messages over a short period followed by a successful plane hit and session end.
+
+### Assistant
+
+Added the `?force8thwall=1` URL flag, which makes the Start button launch 8th Wall directly. With `?debug=1`, supported handheld WebXR devices now request an optional DOM overlay that displays live horizontal/vertical plane counts, labelled wall counts, placement status, and the latest hit-test details. The debug history and copied log condense consecutive zero-hit messages into one entry with a timestamp range and repetition count.
+
+When geolocation permission is denied, the app displays a "Location not found!" indicator with an animated crossed-out location pin and a static reminder to allow location access. Updated the README and developer notes. `npm.cmd run build` and the focused `git diff --check` passed. Live overlay availability depends on browser/device DOM-overlay support and should be confirmed on the target phone.
+
+## Turn 82
+
+### User
+
+Would it make sense to add a test suite?
+
+### Assistant
+
+Yes. The project already has useful deterministic logic that can be tested without AR hardware: animal registry and encounter selection, camera-pan rules, and GeoJSON location matching. Recent work also added URL-flag behavior, location-permission UI, and debug-log condensation, which are good candidates for focused tests.
+
+Start with Vitest and unit tests for those pure functions. Add component tests for the force-8th-Wall start choice, denied-location indicator, and condensed log when practical. Keep actual camera, GPS permission prompts, WebXR plane detection, and 8th Wall tracking as a short manual device checklist; automated browser mocks cannot prove real device tracking works.
+
+There are currently no test files, and `npm test` is a placeholder that exits with an error. A small, focused suite would improve confidence without needing to turn the app into a heavily tested end-to-end project.
+
+## Turn 83
+
+### User
+
+Add the proposed test suite.
+
+### Assistant
+
+Added Vitest with jsdom and React Testing Library, and replaced the placeholder `npm test` script with `vitest run`. The 24 tests cover animal registry and random selection, camera-pan encounter rules, geographic distance, GeoJSON validation and polygon/multipolygon matching, forced AR-path choice, repeated WebXR no-hit log summaries, and the denied-location indicator component.
+
+The test run passes all 24 tests across five files. `npm.cmd run build` also passes, including TypeScript checking, and the focused `git diff --check` passes. Actual device permissions, camera behavior, WebXR tracking, and 8th Wall tracking remain manual device checks.
+
+## Turn 84
+
+### User
+
+1. Is it possible to move the test files into a separate folder?
+2. What is the easiest way to run the test suite?
+
+### Assistant
+
+Moved the test files into `tests/utils/` and `tests/components/`, keeping the existing `npm test` command. The easiest way to run all tests is to open a terminal in the project root and run `npm test`; in PowerShell where script execution blocks `npm`, run `npm.cmd test` instead. Updated the README and developer notes.
