@@ -1254,3 +1254,80 @@ The test run passes all 24 tests across five files. `npm.cmd run build` also pas
 ### Assistant
 
 Moved the test files into `tests/utils/` and `tests/components/`, keeping the existing `npm test` command. The easiest way to run all tests is to open a terminal in the project root and run `npm test`; in PowerShell where script execution blocks `npm`, run `npm.cmd test` instead. Updated the README and developer notes.
+
+## Turn 85
+
+### User
+
+1. Ensure the Location not found icon appears in front of the 8th Wall camera view.
+2. Make WebXR plane/wall detection visuals visible in debug mode.
+3. Under `?game=1`, place the Location not found reminder on a detected plane instead of showing it as an overlay.
+4. Confirm URL flags can be combined, such as `?debug=1&game=1`.
+5. Add a debug button that shows all available flags.
+6. Rename `geteilte fläche.geojson` to `irchel.geojson`.
+7. Use `irchel.geojson` by default and keep the canton map behind `?ch=1`.
+8. Randomly assign animals to Irchel territories at runtime in a separate module without editing the map data; reuse the approach for the canton map if possible.
+9. Update the test suite as needed.
+
+### Assistant
+
+Implemented the flags, default Irchel map and runtime territory animal assignment, WebXR plane reminder placement, debug plane visualization, visible flag list, and front-layer Location not found overlay for 8th Wall. Added tests for combined flags and non-mutating, distinct territory assignments; updated the README and developer notes. `npm.cmd test` passes (32 tests), and `npm.cmd run build` passes. Actual overlay and AR tracking behavior still need verification on supported devices.
+
+## Turn 86
+
+### User
+
+1. Why are `AnimalEncounter` and `LocationNotFoundEncounter` separate files?
+2. Why are there three fox files (`FoxModel`, `mysticalFox`, `polarFox`)? Use the same file structure as the other animals.
+3. Configure Irchel animal species by area, without changing its map: park—fox and hedgehog; lake—fish and duck; tram-path—lizard and cat; mensa—lion and bear; geo—butterfly and crystal; goats—ibex and marmot; bar—monkey and cow; hilltop—crow and eagle; building—dwarf and mouse.
+4. Add the missing animals, with two colorways for each species.
+5. Remove animal assignments from the canton GeoJSON and assign variants to each canton at runtime, as with the Irchel map.
+
+### Assistant
+
+`AnimalEncounter` handles animal placement, encounter tracking, and camera-turn-triggered encounters. `LocationNotFoundEncounter` places a location-permission reminder when the `game` flag is enabled; it is separate because that reminder has no animal encounter lifecycle, though both use WebXR hit testing.
+
+Replaced the three special-case fox files with `src/animals/fox.tsx`, using the shared species model like the other animals. Added fish, duck, cat, crystal, marmot, monkey, mouse, and crow, each with two named color variants. Irchel area-to-species assignments now live in `src/utils/territories.ts`, with both variants available for each assigned species; `irchel.geojson` remains unchanged. Removed embedded animal lists from all 26 canton features and assign two distinct registered variants per canton at runtime. Updated documentation and tests. `npm.cmd test` passes (35 tests), and `npm.cmd run build` passes; physical-device AR behavior still needs device testing.
+
+## Turn 87
+
+### User
+
+1. Add an optional todo to make the `?game=1` Location not found icon behave exactly like an animal, including lifecycle and encounter behavior.
+2. Keep the defined animals per canton, but move the assignment logic outside `animal-areas.geojson`.
+3. Add `?animal=1`: show one animal centered on screen, spin it once through 360°, and advance to the next animal on tap. Do not use plane detection, camera, or location access; use a simple contrasting background.
+4. Add a todo to remove unnecessary flags.
+
+### Assistant
+
+Added pending follow-up todos for the Location not found encounter lifecycle and reviewing/removing unnecessary URL flags. Restored fixed, code-defined canton species and variant pairs in `src/utils/territories.ts`; the GeoJSON retains all 26 canton boundaries but no longer contains animal IDs. Added the standalone `?animal=1` gallery: it displays all 40 animal variants one at a time, spins each once, and advances on tap. This mode skips WebXR support checks and GPS/map loading. Updated documentation and tests. `npm.cmd test` passes (35 tests), `npm.cmd run build` succeeds, and the gallery was checked in the browser. The existing Vite large-chunk advisory remains.
+
+## Turn 88
+
+### User
+
+Double-check the documentation and tests, then revise the animal models: fox (four legs), wolf (eyes and finished tail), pig (pointed ears and nostrils), bear (eyes), cow (redesign), lion (eyes and ears), lizard (jointed legs and a less turtle-like redesign, checked against references), eagle (more majestic), hedgehog (redesign, checked against references), dwarf (humanoid), fish (redesign), duck (flat rounded beak), cat (nose, mouth, whiskers), crystal (quartz-inspired redesign), marmot (redesign, checked against references), monkey (nose, mouth, hands, feet), mouse (nose, mouth, shorter legs), and crow (remove tail).
+
+### Assistant
+
+Updated the shared procedural models with species-specific anatomy: four fox legs; wolf eyes and a finished tail; pig ears and nostrils; visible bear/lion eyes and lion ears; redesigned cow, jointed lizard, spread-wing eagle, spiny hedgehog, humanoid dwarf, horizontal fish, quartz-prism cluster, and marmot; duck bill; cat and mouse facial details; monkey facial features, hands, and feet; and a tail-free crow. Added geometry-level tests for these identifying features, and documented the modeling approach plus the consulted lizard, hedgehog, marmot, eagle, and quartz references. The tests pass (41 tests across 6 files), the production build passes, and `git diff --check` passes. Vite still reports its existing large-chunk advisory; rendered visual fidelity and physical-device AR behavior need manual checks.
+
+## Turn 89
+
+### User
+
+Refine the models: fox—reduce the protruding chest and tail-tip spheres; ibex—move eyes close to the head and reduce the protruding nose; wolf—make eyes clearly visible and reduce the tail-tip sphere; pig—shorten body-colored legs, curl the tail more, remove the extra chest sphere, and color the nose like the head; bear—make it stand on its hind legs and reduce the chest projection; cow—remove the small sphere at the tail base; lion—make eyes visible; lizard—remove joint spheres, make the neck tubular, redesign the face, and add a tail tip; eagle—redesign as a perched bird without odd claws; hedgehog—cover the back and head properly with spines; dwarf—redesign with straight attached arms, correctly placed belt, single-color beard without a mouth, and complete limbs; fish—redesign its face and straighten the dorsal fin; cat—reduce the chest projection and clarify the dot on its face; crystal—make the quartz hexagonal rather than sausage-shaped; marmot—redesign and add a backup animal named “minx”; mouse—connect body to feet with legs and reduce its chest projection.
+
+### Assistant
+
+Refined the shared procedural models: reduced fox and ibex protrusions, brought ibex eyes closer, made wolf eyes prominent and its tail tip smaller, simplified and curled the pig tail while shortening its body-colored legs, added an upright bear, removed the cow tail-base sphere, repositioned lion eyes to the face surface, smoothed the lizard legs and neck and added a tail tip, replaced the flying eagle with a perched pose, spread hedgehog spines over the head and back, adjusted the dwarf's beard/belt/limbs, redesigned the fish face and straightened its dorsal fin, reduced the cat and mouse chest shapes, and rebuilt the crystals as shorter hexagonal prisms. The cat's center mark was its nose; it is now a smaller, downward-pointing triangle rather than a round-looking dot. Interpreted “minx” as mink and added two mink color variants to the goats-area pool as a backup to marmot. Updated tests and documentation. All 41 tests pass and the production build succeeds. The browser gallery confirms visible wolf and lion eyes and now contains 42 animals; `git diff --check` passes. The build still reports Vite's existing large-chunk advisory.
+
+## Turn 90
+
+### User
+
+Refine the models: ibex—make horns taper to points and angle ears slightly upward; wolf—remove yellow eyes; pig—close gaps at the head/nose and body/legs; bear—connect legs, feet, and torso; cow—connect tail to body; lizard—remove the dot on the front of the head; eagle—redesign completely using online references; hedgehog—add side spines, remove face spines, angle spines backward, and connect legs to body; dwarf—move belt to waist and remove hat brim; fish—remove strange brown lines; cat—remove nose dot and line; crystal—redesign using online references; use mink instead of marmot; mouse—remove the dark grey line in front of the face.
+
+### Assistant
+
+Made the requested geometry changes: tapered ibex horns with upward-angled ears; dark wolf eyes; overlapping body-colored pig snout and legs; upright bear limb/torso contacts; an inset cow-tail start; removed the lizard's nose dot; redesigned the eagle as a perched bird with folded, feathered wings, hooked beak, and simplified feet; spread hedgehog spines over its back and sides while keeping them off the face and angling them backward; moved the dwarf's belt to the waist and removed the hat brim; removed fish gill/mouth lines and cat nose/mouth marks; reshaped quartz into a compact cluster of six-sided prisms with six-sided pointed terminations; replaced marmots with mink in the goats territory; and removed the mouse's dark mouth line. Updated geometry tests, territory expectations, and the eagle/quartz references in developer notes. `npm.cmd test` passes all 41 tests, `npm.cmd run build` succeeds, and `git diff --check` passes. The browser gallery was checked for the perched eagle and crystal cluster. Vite continues to emit its existing large-chunk advisory.

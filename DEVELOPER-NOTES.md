@@ -24,35 +24,40 @@ Changes to camera, tracking, plane detection, or placement should be validated o
 
 ## Canton and animal data
 
-`public/data/animal-areas.geojson` contains simplified Swiss canton boundaries from the geoBoundaries `gbOpen CHE ADM1 2022` dataset sourced from swisstopo. Each canton feature has an `areaId`, `areaName`, `cantonISO`, and an `animals` array containing the two encounter variants assigned to that canton. The data retains per-feature source attribution and license metadata; see [swisstopo's geodata terms](https://www.swisstopo.admin.ch/en/home/meta/conditions/geodata/ogd.html).
+`public/data/irchel.geojson` is the default campus territory map and retains its source geometry/properties. `src/utils/territories.ts` assigns its configured animal species and both color variants at runtime without editing the GeoJSON. Add `?ch=1` to instead load `public/data/animal-areas.geojson`, which contains the Swiss canton boundaries from the geoBoundaries `gbOpen CHE ADM1 2022` dataset sourced from swisstopo. `src/utils/territories.ts` keeps the defined species and variants assigned to each canton; those assignments are not stored in the GeoJSON. Its per-feature source and license attribution refer to [swisstopo's geodata terms](https://www.swisstopo.admin.ch/en/home/meta/conditions/geodata/ogd.html).
 
-Assignments:
+Irchel area assignments:
 
-| Canton(s) | Animal |
+| Area | Animals |
 |---|---|
-| GR | Ibex |
-| VS | Wolf |
-| TG, SG, AI, AR | Butterfly |
-| ZH, SH | Fox |
-| AG, SO | Pig |
-| BE | Bear |
-| OW, NW, UR, SZ, GL | Cow |
-| LU, ZG | Lion |
-| TI | Lizard |
-| GE, VD | Eagle |
-| JU, NE, FR | Hedgehog |
-| BS, BL | Dwarf |
+| park | Fox, Hedgehog |
+| lake | Fish, Duck |
+| tram-path | Lizard, Cat |
+| mensa | Lion, Bear |
+| geo | Butterfly, Crystal |
+| goats | Ibex, Mink |
+| bar | Monkey, Cow |
+| hilltop | Crow, Eagle |
+| building | Dwarf, Mouse |
 
-`AR` is the ISO canton code for Appenzell Ausserrhoden; the user's list used `AS`.
-
-Animal definitions live in `src/animals/`; the registry and shared encounter behavior live in `src/utils/animals.ts`. `CreatureModel.tsx` provides reusable stylized 3D geometry for non-fox animals. Each species module defines two animal definitions with different IDs, names, and palettes. The Mystical Fox and Polar Fox definitions remain in their dedicated modules.
+Animal definitions live in `src/animals/`; the registry and encounter selection live in `src/utils/animals.ts`. `CreatureModel.tsx` supplies the shared stylized geometry for every species, including fox. Each species module defines two animal variants with unique IDs, names, and color palettes.
 
 To add or replace an encounter variant:
 
 1. Define a unique ID, display name, model, and palette in the relevant species module.
 2. Register the definition in `src/utils/animals.ts`.
-3. Add the ID to the appropriate GeoJSON feature's `animals` array.
+3. Add the ID to the appropriate runtime assignment in `src/utils/territories.ts` (or it may be selected randomly for a canton).
 4. Confirm the ID resolves through `isAnimalId()` and the model renders in both WebXR and 8th Wall.
+
+All variants of a species share the procedural geometry in `src/animals/CreatureModel.tsx`; colorways and names are defined in the species module. Keep species-defining anatomy visible at the gallery's viewing scale, and extend `tests/utils/animals.test.ts` when adding or redesigning a model. These tests check generated Three.js geometry, not rendered visual fidelity or biological accuracy, so inspect significant shape changes in the `?animal=1` gallery as well.
+
+Reference pages consulted for the current model shapes:
+
+- [Lizard](https://en.wikipedia.org/wiki/Lizard) — elongated body, four jointed limbs, and tapering tail.
+- [Hedgehog](https://en.wikipedia.org/wiki/Hedgehog) — compact body, pointed snout, and dense spines.
+- [Marmot](https://en.wikipedia.org/wiki/Marmot) — stocky rodent proportions, short limbs, and rounded head.
+
+These are stylized low-poly interpretations. No reference images or third-party model assets are copied into the project.
 
 Area entry and GPS movement select randomly from the feature's animal pool. The default move-on distance is 10 m; `?outside=1` changes only that distance to 25 m. Camera-pan testing is currently set to 30 degrees and 100% chance after a 15-second cooldown; the intended original values are 90 degrees and 30% chance.
 
@@ -69,7 +74,7 @@ Run commands from the repository root:
 
 When testing diagnostics, append `?debug=1` to the URL. The default view hides developer-only diagnostics. In supported handheld WebXR browsers, the optional DOM overlay shows live horizontal/vertical plane and wall counts plus placement and hit-test status. Session lifecycle and throttled hit-test samples are written to the browser console and retained in a copyable log; consecutive no-hit samples are condensed into a timestamp range. DOM overlay support is device/browser dependent.
 
-Use `?force8thwall=1` to make the Start button launch 8th Wall directly instead of selecting WebXR. If geolocation permission is denied, the **Location not found!** indicator appears with a rotating crossed-out location pin and an access reminder.
+Use `?force8thwall=1` to make the Start button launch 8th Wall directly instead of selecting WebXR. `?game=1` places the denied-location reminder on a WebXR plane; 8th Wall keeps the reminder as an overlay. `?ch=1` selects the Swiss canton map and `?outside=1` changes the movement distance. `?animal=1` opens a standalone animal gallery; it skips XR support checks and animal-area loading/GPS access. Query flags can be combined, but the gallery takes precedence when `animal=1`. If geolocation permission is denied, the **Location not found!** indicator appears with a rotating crossed-out location pin and an access reminder.
 
 For localtunnel testing, run the dev server and tunnel in separate terminals. Vite is configured to allow generated `.loca.lt` subdomains and to fail rather than switch away from port 5173. This is a local-development workaround for browser APIs that need a secure context; it is not part of deployment.
 
@@ -79,7 +84,7 @@ Android USB debugging notes:
 2. Run `adb reverse tcp:5173 tcp:5173`.
 3. Use Firefox `about:debugging#/setup` to inspect Android remote debugging.
 
-The test suite covers animal registry and encounter logic, GeoJSON location matching, AR path selection, debug-log summaries, and the denied-location indicator. It cannot verify real camera/GPS permission prompts, WebXR plane tracking, or 8th Wall world tracking; validate those on supported physical devices. There is no separate lint script configured.
+The test suite covers animal registry, generated anatomy cues, and encounter logic; GeoJSON location matching; AR path selection; debug-log summaries; and the denied-location indicator. It cannot verify visual fidelity, real camera/GPS permission prompts, WebXR plane tracking, or 8th Wall world tracking; inspect model changes in the gallery and validate AR behavior on supported physical devices. There is no separate lint script configured.
 
 ## Deployment
 

@@ -8,10 +8,6 @@
         "areaName": "Canton Aargau",
         "canton": "Aargau",
         "cantonISO": "CH-AG",
-        "animals": [
-          "rosewood-pig",
-          "meadow-pig"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B11338788345342",
@@ -1763,10 +1759,6 @@
         "areaName": "Canton Appenzell Ausserrhoden",
         "canton": "Appenzell Ausserrhoden",
         "cantonISO": "CH-AR",
-        "animals": [
-          "alpine-blue-butterfly",
-          "golden-apollo-butterfly"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B71472094577065",
@@ -2766,10 +2758,6 @@
         "areaName": "Canton Appenzell Innerrhoden",
         "canton": "Appenzell Innerrhoden",
         "cantonISO": "CH-AI",
-        "animals": [
-          "alpine-blue-butterfly",
-          "golden-apollo-butterfly"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B73029947081098",
@@ -3403,10 +3391,6 @@
         "areaName": "Canton Basel-Landschaft",
         "canton": "Basel-Landschaft",
         "cantonISO": "CH-BL",
-        "animals": [
-          "mountain-dwarf",
-          "crystal-dwarf"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B84766611276082",
@@ -4664,10 +4648,6 @@
         "areaName": "Canton Basel-Stadt",
         "canton": "Basel-Stadt",
         "cantonISO": "CH-BS",
-        "animals": [
-          "mountain-dwarf",
-          "crystal-dwarf"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B62987387977087",
@@ -4915,10 +4895,6 @@
         "areaName": "Canton Bern",
         "canton": "Bern",
         "cantonISO": "CH-BE",
-        "animals": [
-          "chestnut-bear",
-          "glacier-bear"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B78940680080703",
@@ -8864,10 +8840,6 @@
         "areaName": "Canton Fribourg",
         "canton": "Fribourg",
         "cantonISO": "CH-FR",
-        "animals": [
-          "bramble-hedgehog",
-          "moonlit-hedgehog"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B87604960987122",
@@ -11411,10 +11383,6 @@
         "areaName": "Canton Genève",
         "canton": "Genève",
         "cantonISO": "CH-GE",
-        "animals": [
-          "golden-eagle",
-          "snowpeak-eagle"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B83881285484717",
@@ -12184,10 +12152,6 @@
         "areaName": "Canton Glarus",
         "canton": "Glarus",
         "cantonISO": "CH-GL",
-        "animals": [
-          "edelweiss-cow",
-          "midnight-cow"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B11753136967749",
@@ -12947,10 +12911,6 @@
         "areaName": "Canton Graubünden",
         "canton": "Graubünden",
         "cantonISO": "CH-GR",
-        "animals": [
-          "alpine-ibex",
-          "glacier-ibex"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B85432491504073",
@@ -16846,10 +16806,6 @@
         "areaName": "Canton Jura",
         "canton": "Jura",
         "cantonISO": "CH-JU",
-        "animals": [
-          "bramble-hedgehog",
-          "moonlit-hedgehog"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B19914004537681",
@@ -18021,10 +17977,6 @@
         "areaName": "Canton Luzern",
         "canton": "Luzern",
         "cantonISO": "CH-LU",
-        "animals": [
-          "suncrest-lion",
-          "embermane-lion"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B29073934101403",
@@ -19432,10 +19384,6 @@
         "areaName": "Canton Neuchâtel",
         "canton": "Neuchâtel",
         "cantonISO": "CH-NE",
-        "animals": [
-          "bramble-hedgehog",
-          "moonlit-hedgehog"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B64873726514121",
@@ -20011,10 +19959,6 @@
         "areaName": "Canton Nidwalden",
         "canton": "Nidwalden",
         "cantonISO": "CH-NW",
-        "animals": [
-          "edelweiss-cow",
-          "midnight-cow"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B45925471978558",
@@ -20690,10 +20634,6 @@
         "areaName": "Canton Obwalden",
         "canton": "Obwalden",
         "cantonISO": "CH-OW",
-        "animals": [
-          "edelweiss-cow",
-          "midnight-cow"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B39944874342149",
@@ -21567,10 +21507,6 @@
         "areaName": "Canton Schaffhausen",
         "canton": "Schaffhausen",
         "cantonISO": "CH-SH",
-        "animals": [
-          "mystical-fox",
-          "polar-fox"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B22837365779622",
@@ -22776,10 +22712,6 @@
         "areaName": "Canton Schwyz",
         "canton": "Schwyz",
         "cantonISO": "CH-SZ",
-        "animals": [
-          "edelweiss-cow",
-          "midnight-cow"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B29858350399599",
@@ -23699,10 +23631,6 @@
         "areaName": "Canton Solothurn",
         "canton": "Solothurn",
         "cantonISO": "CH-SO",
-        "animals": [
-          "rosewood-pig",
-          "meadow-pig"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B36749553910786",
@@ -25820,10 +25748,6 @@
         "areaName": "Canton St. Gallen",
         "canton": "St. Gallen",
         "cantonISO": "CH-SG",
-        "animals": [
-          "alpine-blue-butterfly",
-          "golden-apollo-butterfly"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B27205007293794",
@@ -28429,10 +28353,6 @@
         "areaName": "Canton Thurgau",
         "canton": "Thurgau",
         "cantonISO": "CH-TG",
-        "animals": [
-          "alpine-blue-butterfly",
-          "golden-apollo-butterfly"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B73326014959541",
@@ -30220,10 +30140,6 @@
         "areaName": "Canton Ticino",
         "canton": "Ticino",
         "cantonISO": "CH-TI",
-        "animals": [
-          "emerald-lizard",
-          "copper-lizard"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B95773795125249",
@@ -32073,10 +31989,6 @@
         "areaName": "Canton Uri",
         "canton": "Uri",
         "cantonISO": "CH-UR",
-        "animals": [
-          "edelweiss-cow",
-          "midnight-cow"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B76174754463268",
@@ -33252,10 +33164,6 @@
         "areaName": "Canton Valais",
         "canton": "Valais",
         "cantonISO": "CH-VS",
-        "animals": [
-          "moon-wolf",
-          "timber-wolf"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B38573473865054",
@@ -35915,10 +35823,6 @@
         "areaName": "Canton Vaud",
         "canton": "Vaud",
         "cantonISO": "CH-VD",
-        "animals": [
-          "golden-eagle",
-          "snowpeak-eagle"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B85268669280160",
@@ -38750,10 +38654,6 @@
         "areaName": "Canton Zug",
         "canton": "Zug",
         "cantonISO": "CH-ZG",
-        "animals": [
-          "suncrest-lion",
-          "embermane-lion"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B70106229378933",
@@ -39313,10 +39213,6 @@
         "areaName": "Canton Zürich",
         "canton": "Zürich",
         "cantonISO": "CH-ZH",
-        "animals": [
-          "mystical-fox",
-          "polar-fox"
-        ],
         "boundarySource": "Federal Office of Topography swisstopo via geoBoundaries",
         "boundaryDataset": "geoBoundaries gbOpen CHE ADM1 2022 simplified",
         "boundaryID": "70761945B4468941998498",

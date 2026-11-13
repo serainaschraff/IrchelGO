@@ -1,14 +1,22 @@
-import { mysticalFox } from "../animals/mysticalFox";
-import { polarFox } from "../animals/polarFox";
 import { bearVariants } from "../animals/bear";
 import { butterflyVariants } from "../animals/butterfly";
+import { catVariants } from "../animals/cat";
 import { cowVariants } from "../animals/cow";
+import { crowVariants } from "../animals/crow";
+import { crystalVariants } from "../animals/crystal";
+import { duckVariants } from "../animals/duck";
 import { dwarfVariants } from "../animals/dwarf";
 import { eagleVariants } from "../animals/eagle";
+import { fishVariants } from "../animals/fish";
+import { foxVariants } from "../animals/fox";
 import { hedgehogVariants } from "../animals/hedgehog";
 import { ibexVariants } from "../animals/ibex";
 import { lionVariants } from "../animals/lion";
 import { lizardVariants } from "../animals/lizard";
+import { marmotVariants } from "../animals/marmot";
+import { minkVariants } from "../animals/mink";
+import { monkeyVariants } from "../animals/monkey";
+import { mouseVariants } from "../animals/mouse";
 import { pigVariants } from "../animals/pig";
 import { wolfVariants } from "../animals/wolf";
 import type { AnimalDefinition, AnimalId } from "../animals/types";
@@ -20,8 +28,7 @@ export type {
 } from "../animals/types";
 
 export const animalRegistry: readonly AnimalDefinition[] = [
-  mysticalFox,
-  polarFox,
+  ...foxVariants,
   ...ibexVariants,
   ...wolfVariants,
   ...butterflyVariants,
@@ -33,6 +40,15 @@ export const animalRegistry: readonly AnimalDefinition[] = [
   ...eagleVariants,
   ...hedgehogVariants,
   ...dwarfVariants,
+  ...fishVariants,
+  ...duckVariants,
+  ...catVariants,
+  ...crystalVariants,
+  ...marmotVariants,
+  ...minkVariants,
+  ...monkeyVariants,
+  ...mouseVariants,
+  ...crowVariants,
 ];
 
 export const encounterRules = {

@@ -3,9 +3,12 @@ import {
   findGeoJSONFeatureAtLocation,
   getGeolocation,
   isGeoJSONAreaCollection,
+  type GeoJSONAreaCollection,
 } from "./utils/geolocation";
 import { RedWalls } from "./components/RedWalls";
 import AnimalEncounter from "./components/AnimalEncounter";
+import LocationNotFoundEncounter from "./components/LocationNotFoundEncounter";
+import AnimalGallery from "./components/AnimalGallery";
 import { Canvas } from "@react-three/fiber";
 import { createXRStore, XR, XRDomOverlay, useXR } from "@react-three/xr";
 import {
@@ -19,37 +22,22 @@ import {
   distanceBetweenLocations,
   encounterRules,
   getAnimalDefinition,
-  isAnimalId,
   type AnimalId,
 } from "./utils/animals";
 import LocationNotFound from "./components/LocationNotFound";
 import { summarizeDebugEvents } from "./utils/debugLog";
-import { getARStartMode } from "./utils/runtimeOptions";
-
-type AnimalAreaProperties = {
-  areaId: string;
-  areaName: string;
-  animals: AnimalId[];
-  cantonISO?: string;
-};
-
-function isAnimalAreaProperties(
-  value: unknown,
-): value is AnimalAreaProperties | null {
-  return (
-    value === null ||
-    (typeof value === "object" &&
-      "areaId" in value &&
-      typeof value.areaId === "string" &&
-      "areaName" in value &&
-      typeof value.areaName === "string" &&
-      "animals" in value &&
-      Array.isArray(value.animals) &&
-      value.animals.length > 0 &&
-      value.animals.every(isAnimalId) &&
-      (!("cantonISO" in value) || typeof value.cantonISO === "string"))
-  );
-}
+import {
+  getARStartMode,
+  getAnimalAreaMapFile,
+  getAppFlags,
+} from "./utils/runtimeOptions";
+import {
+  assignAnimalsToCantonTerritories,
+  assignIrchelAnimalsToTerritories,
+  isCantonTerritoryProperties,
+  isTerritoryProperties,
+  type AnimalAreaProperties,
+} from "./utils/territories";
 
 const xrStore = createXRStore({
   offerSession: false,
@@ -62,12 +50,14 @@ const xrStore = createXRStore({
   hitTest: true,
 });
 
-const debugEnabled =
-  new URLSearchParams(window.location.search).get("debug") === "1";
-const forceEightWallEnabled =
-  new URLSearchParams(window.location.search).get("force8thwall") === "1";
-const outsideModeEnabled =
-  new URLSearchParams(window.location.search).get("outside") === "1";
+const {
+  debug: debugEnabled,
+  forceEightWall: forceEightWallEnabled,
+  game: gameEnabled,
+  swissMap: swissMapEnabled,
+  outside: outsideModeEnabled,
+  animalGallery: animalGalleryEnabled,
+} = getAppFlags(window.location.search);
 const moveOnDistanceMeters = outsideModeEnabled
   ? 25
   : encounterRules.moveOnDistanceMeters;
@@ -75,11 +65,13 @@ const moveOnDistanceMeters = outsideModeEnabled
 function WebXRDomOverlay({
   debug,
   locationPermissionDenied,
+  game,
   animalPlacementStatus,
   debugEvents,
 }: {
   debug: boolean;
   locationPermissionDenied: boolean;
+  game: boolean;
   animalPlacementStatus: string | null;
   debugEvents: string[];
 }) {
@@ -104,7 +96,7 @@ function WebXRDomOverlay({
   return (
     <XRDomOverlay>
       <div className="xr-dom-overlay">
-        {locationPermissionDenied ? <LocationNotFound /> : null}
+        {locationPermissionDenied && !game ? <LocationNotFound /> : null}
         {debug ? (
           <section className="xr-live-debug" aria-label="Live WebXR diagnostics">
             <strong>WebXR live diagnostics</strong>
@@ -140,6 +132,7 @@ export default function App() {
     const [locationStatus, setLocationStatus] = useState("Loading animal areas...");
     const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
     const [troubleshootingOpen, setTroubleshootingOpen] = useState(false);
+    const [availableFlagsOpen, setAvailableFlagsOpen] = useState(false);
     const [debugEvents, setDebugEvents] = useState<string[]>([]);
     const selectedAnimalIdRef = useRef<AnimalId | null>(null);
     const currentAnimalIdRef = useRef<AnimalId | null>(null);
@@ -220,6 +213,7 @@ export default function App() {
     }
 
     useEffect(() => {
+        if (animalGalleryEnabled) return;
         let cancelled = false;
         async function checkXRSupport() {
           const xr = navigator.xr;
@@ -248,6 +242,7 @@ export default function App() {
     }, []);
 
     useEffect(() => {
+        if (animalGalleryEnabled) return;
         const controller = new AbortController();
         let watchId: number | undefined;
         let loadTimedOut = false;
@@ -260,7 +255,7 @@ export default function App() {
         async function loadAreasAndWatchLocation() {
           try {
             const response = await fetch(
-              `${import.meta.env.BASE_URL}data/animal-areas.geojson`,
+              `${import.meta.env.BASE_URL}data/${getAnimalAreaMapFile(swissMapEnabled)}`,
               {
               signal: controller.signal,
               },
@@ -269,9 +264,18 @@ export default function App() {
               throw new Error(`Could not load animal areas (${response.status}).`);
             }
 
-            const data: unknown = await response.json();
-            if (!isGeoJSONAreaCollection<AnimalAreaProperties>(data, isAnimalAreaProperties)) {
-              throw new Error("Animal area data is not a valid GeoJSON FeatureCollection.");
+            const rawData: unknown = await response.json();
+            let data: GeoJSONAreaCollection<AnimalAreaProperties>;
+            if (swissMapEnabled) {
+              if (!isGeoJSONAreaCollection(rawData, isCantonTerritoryProperties)) {
+                throw new Error("Swiss animal area data is not a valid GeoJSON FeatureCollection.");
+              }
+              data = assignAnimalsToCantonTerritories(rawData);
+            } else {
+              if (!isGeoJSONAreaCollection(rawData, isTerritoryProperties)) {
+                throw new Error("Irchel territory data is not a valid GeoJSON FeatureCollection.");
+              }
+              data = assignIrchelAnimalsToTerritories(rawData);
             }
 
             if (controller.signal.aborted) return;
@@ -473,10 +477,14 @@ export default function App() {
     }
 
     useEffect(() => {
+      if (animalGalleryEnabled) return;
       setEightWallEncounterAnimal(selectedAnimalId, encounterNumber);
     }, [selectedAnimalId, encounterNumber]);
 
-    useEffect(() => () => stopEightWall(), []);
+    useEffect(() => {
+      if (animalGalleryEnabled) return;
+      return () => stopEightWall();
+    }, []);
 
     function end8thWallSession() {
       recordDebugEvent("8th Wall: Stop AR requested.");
@@ -566,6 +574,10 @@ export default function App() {
      * This is only screen-relative placement; it is not world-locked.
      */
 
+  if (animalGalleryEnabled) {
+    return <AnimalGallery />;
+  }
+
   return (
      <div className="app-shell">
       {experienceMode === "idle" ? (
@@ -588,10 +600,11 @@ export default function App() {
           }}
         >
           <XR store={xrStore}>
-            <RedWalls />
+            <RedWalls debug={debugEnabled} />
             <WebXRDomOverlay
               debug={debugEnabled}
               locationPermissionDenied={locationPermissionDenied}
+              game={gameEnabled}
               animalPlacementStatus={animalPlacementStatus}
               debugEvents={debugEvents}
             />
@@ -607,6 +620,11 @@ export default function App() {
                 onPlaced={confirmAnimalPlacement}
               />
             )}
+            {gameEnabled && locationPermissionDenied && !selectedAnimalId ? (
+              <LocationNotFoundEncounter
+                onPlacementStatus={setAnimalPlacementStatus}
+              />
+            ) : null}
           </XR>
         </Canvas>
       ) : null}
@@ -705,7 +723,7 @@ export default function App() {
               <li>AR starts only after you tap Start Game.</li>
               <li>The app tries WebXR first and can offer 8th Wall as a fallback.</li>
               <li>
-                Entering the Fox area starts a random animal encounter. Walking
+                Entering an animal territory starts a random animal encounter. Walking
                 at least {moveOnDistanceMeters} m starts another.
               </li>
               <li>
@@ -735,10 +753,28 @@ export default function App() {
         <section className="debug-log-panel" aria-label="AR debug log">
           <div className="debug-log-header">
             <strong>AR debug log</strong>
+            <button
+              type="button"
+              aria-expanded={availableFlagsOpen}
+              onClick={() => setAvailableFlagsOpen((open) => !open)}
+            >
+              {availableFlagsOpen ? "Hide flags" : "Show flags"}
+            </button>
             <button type="button" onClick={() => void copyDebugLog()}>
               Copy log
             </button>
           </div>
+          {availableFlagsOpen ? (
+            <ul className="available-flags">
+              <li><code>?debug=1</code> — show diagnostics.</li>
+              <li><code>?force8thwall=1</code> — start 8th Wall directly.</li>
+              <li><code>?game=1</code> — place the denied-location reminder on a WebXR plane.</li>
+              <li><code>?ch=1</code> — use the Swiss canton map instead of the Irchel map.</li>
+              <li><code>?outside=1</code> — use a 25 m move-on distance.</li>
+              <li><code>?animal=1</code> — browse and spin through the animal variants without AR or location access.</li>
+              <li>Flags can be combined, for example <code>?debug=1&amp;game=1</code>.</li>
+            </ul>
+          ) : null}
           <pre aria-live="polite">
             {debugEvents.length > 0
               ? summarizeDebugEvents(debugEvents).reverse().join("\n")

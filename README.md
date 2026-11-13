@@ -6,8 +6,8 @@ IrchelGO is a mobile augmented-reality experience for exploring the University o
 
 - WebXR plane detection is the preferred AR mode.
 - 8th Wall world tracking is available as a fallback on supported devices.
-- Swiss canton boundaries and animal assignments are stored in GeoJSON.
-- Each canton is assigned two animal variants with separate names and colors.
+- Swiss canton boundaries are stored in GeoJSON; animal assignments are generated at runtime.
+- Each animal species has two named color variants. Mink replaces marmot as the non-ibex encounter in the goats area.
 - Help and developer diagnostics are available in the app.
 
 ## Requirements
@@ -49,9 +49,9 @@ The production build is written to `dist/`.
 
 ## Animal areas and variants
 
-The canton polygons and animal IDs are in [`public/data/animal-areas.geojson`](./public/data/animal-areas.geojson). Each feature contains its canton code and two animal IDs. The simplified boundaries are from the geoBoundaries `gbOpen CHE ADM1 2022` dataset sourced from swisstopo; source and license attribution are included in the GeoJSON.
+The default Irchel map is [`public/data/irchel.geojson`](./public/data/irchel.geojson). Its territory geometry and properties are left unchanged; the configured animal species and both color variants are added at runtime by [`src/utils/territories.ts`](./src/utils/territories.ts). Add `?ch=1` to use the Swiss canton boundaries in [`public/data/animal-areas.geojson`](./public/data/animal-areas.geojson); each canton keeps its defined animal species and variants, configured in code rather than stored in the GeoJSON.
 
-Animal definitions and their models are in [`src/animals/`](./src/animals/). The registry and encounter selection are in [`src/utils/animals.ts`](./src/utils/animals.ts). See [DEVELOPER-NOTES.md](./DEVELOPER-NOTES.md) for the canton assignment table and the steps for adding or changing variants.
+Animal definitions and their shared procedural species models are in [`src/animals/`](./src/animals/). The registry and encounter selection are in [`src/utils/animals.ts`](./src/utils/animals.ts). Anatomy-focused model tests live in [`tests/utils/animals.test.ts`](./tests/utils/animals.test.ts). See [DEVELOPER-NOTES.md](./DEVELOPER-NOTES.md) for the Irchel territory pairs, model design notes, and steps for adding or changing variants.
 
 ## AR placement and troubleshooting
 
@@ -59,7 +59,7 @@ In WebXR mode, the app uses a viewer-based plane hit test. It places the animal 
 
 For devices without a usable WebXR path, the app can use the separate 8th Wall tracking pipeline. Keep its camera pipeline separate from WebXR.
 
-Use the **Help** panel for user-facing status. Append `?debug=1` to show developer diagnostics; in supported handheld WebXR browsers, a live overlay reports horizontal planes, vertical planes/walls, and hit-test status while AR is active. The on-page log condenses consecutive no-hit samples into a timestamp range and can be copied after leaving AR. Add `?force8thwall=1` to start 8th Wall instead of WebXR. `?outside=1` changes the GPS move-on distance from 10 m to 25 m; it does not change the AR placement distance.
+Use the **Help** panel for user-facing status. Append `?debug=1` to show developer diagnostics; in supported handheld WebXR browsers, a live overlay reports horizontal planes, vertical planes/walls, and hit-test status while AR is active, and detected planes are drawn in the scene. The on-page log condenses consecutive no-hit samples into a timestamp range and can be copied after leaving AR. Add `?force8thwall=1` to start 8th Wall instead of WebXR. `?game=1` places the denied-location reminder on a detected WebXR plane rather than displaying it as an overlay. `?outside=1` changes the GPS move-on distance from 10 m to 25 m; it does not change the AR placement distance. `?animal=1` opens a standalone, tap-to-advance animal gallery; it uses no GPS or AR session. Flags can be combined, for example `?debug=1&game=1&ch=1`.
 
 If location permission is denied, the app displays the **Location not found!** indicator with a rotating crossed-out location pin and a reminder to allow access.
 

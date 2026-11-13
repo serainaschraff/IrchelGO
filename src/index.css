@@ -23,6 +23,70 @@ body {
   background: #000;
 }
 
+.animal-gallery {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.96) 0%, rgba(238, 243, 241, 0.92) 48%, rgba(201, 216, 218, 0.98) 100%);
+}
+
+.animal-gallery-next {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: radial-gradient(ellipse at 50% 45%, #fff 0%, #f5f5ee 55%, #e3ece9 100%);
+  box-shadow: 0 24px 70px rgba(34, 57, 63, 0.18);
+  color: #172d3c;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.animal-gallery-next:focus-visible {
+  outline: 3px solid #296d80;
+  outline-offset: 4px;
+}
+
+.animal-gallery-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.animal-gallery-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.animal-gallery-caption {
+  position: absolute;
+  right: 16px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: 16px;
+  display: grid;
+  gap: 7px;
+  color: #263d44;
+  text-align: center;
+  pointer-events: none;
+}
+
+.animal-gallery-caption strong {
+  font-size: clamp(1.35rem, 5vw, 2rem);
+}
+
+.animal-gallery-caption span {
+  font-size: 0.95rem;
+}
+
 .camera-layer {
   position: absolute;
   inset: 0;
@@ -301,6 +365,7 @@ body {
 
 .location-not-found {
   position: fixed;
+  z-index: 8;
   top: 50%;
   left: 50%;
   display: flex;
@@ -317,6 +382,18 @@ body {
   text-align: center;
   transform: translate(-50%, -50%);
   pointer-events: none;
+}
+
+.available-flags {
+  max-height: 22vh;
+  margin: 8px 0;
+  padding-left: 20px;
+  overflow: auto;
+  line-height: 1.45;
+}
+
+.available-flags li + li {
+  margin-top: 4px;
 }
 
 .location-not-found-icon {
