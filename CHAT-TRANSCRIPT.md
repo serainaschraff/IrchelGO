@@ -1,6 +1,6 @@
 # IrchelGO Chat Transcript
 
-Generated: 2026-10-27T20:53:19.997Z
+Updated: 2026-11-14
 
 > This transcript contains the 50 conversation turns available in the session export (turns 5-54). Earlier turns were not included in that export, so this is not a verbatim copy of the session from its beginning. Tool-call details are omitted; user and assistant messages are preserved. Attachments are referenced by their message text but are not embedded.
 
@@ -337,12 +337,23 @@ On the Android phone, check that Chrome and **Google Play Services for AR** are 
 
 For a more precise diagnosis, please share the phone model, Android version, Chrome version, and whether Google Play Services for AR is installed.
 
+## Turn 112
+
+### User
+
+there is a new file called bülach.geojson, if the flag "buli" is active use this map
+
+### Assistant
+
+Updated the map selection logic so `?buli=1` loads the Bülach territory file instead of the default Irchel/Swiss maps. The flag is exposed in the runtime options and the app now prefers the Bülach map when it is active, even if another map flag is also present.
+
+The change is in [src/utils/runtimeOptions.ts](</c:/Users/Seraina/Desktop/Uni/GEO%20879/App/IrchelGO/src/utils/runtimeOptions.ts>) and [src/App.tsx](</c:/Users/Seraina/Desktop/Uni/GEO%20879/App/IrchelGO/src/App.tsx>), and the URL flag is documented in [DEVELOPER-NOTES.md](</c:/Users/Seraina/Desktop/Uni/GEO%20879/App/IrchelGO/DEVELOPER-NOTES.md>). I also updated the runtime flag tests to cover the new selection behavior.
+
 ## Turn 25
 
 ### User
 
 maybe the issue is not with the device, but with the chosen library. All I want is to be able to display the animals in a reasonable place when using the camera to look at the scene infront of the user. the devices used will be any type of smartphone, be it apple or android and a browser. As there is a lot of support for react, the idea is to build it on top of react, but if there is a better solution this can also be changed.
-
 ### Assistant
 
 I’ll check how the current app starts XR and what the project depends on, then compare that with the cross-platform browser requirement.I’ll implement the hybrid path: keep WebXR and plane-hit placement where the browser supports it, and provide a camera-backed tap-to-place fallback elsewhere. The fallback will be explicit that placement is screen-relative, not world-locked.Implemented the hybrid approach. **The library is part of the limitation, but it isn’t the whole cause:** [`@react-three/xr`](C:/Users/Seraina/Desktop/Uni/GEO%20879/App/IrchelGO/package.json) uses the browser’s WebXR support, so it can’t provide world tracking in browsers that don’t expose immersive AR.
@@ -1331,3 +1342,132 @@ Refine the models: ibex—make horns taper to points and angle ears slightly upw
 ### Assistant
 
 Made the requested geometry changes: tapered ibex horns with upward-angled ears; dark wolf eyes; overlapping body-colored pig snout and legs; upright bear limb/torso contacts; an inset cow-tail start; removed the lizard's nose dot; redesigned the eagle as a perched bird with folded, feathered wings, hooked beak, and simplified feet; spread hedgehog spines over its back and sides while keeping them off the face and angling them backward; moved the dwarf's belt to the waist and removed the hat brim; removed fish gill/mouth lines and cat nose/mouth marks; reshaped quartz into a compact cluster of six-sided prisms with six-sided pointed terminations; replaced marmots with mink in the goats territory; and removed the mouse's dark mouth line. Updated geometry tests, territory expectations, and the eagle/quartz references in developer notes. `npm.cmd test` passes all 41 tests, `npm.cmd run build` succeeds, and `git diff --check` passes. The browser gallery was checked for the perched eagle and crystal cluster. Vite continues to emit its existing large-chunk advisory.
+
+The five assistant entries below are concise reconstructions from the session history, not verbatim replies. The user requests are transcribed from the recovered conversation.
+
+## Turn 91
+
+### User
+
+wolf: make the nose shorter and ensure that there is no gap between tip of the nose and the nose
+
+bear: ensure that the legs are connected to the feet
+
+lizard: move eyes forward on the face, remove the different coloured sphere on the face
+
+eagle: redesign, see attached reference
+
+dwarf: tilt hat further back, such that the whole face is visible and the hat covers the back of the head
+
+fish: rotate top fin, such that it is oriented to align with the lenght of the body
+
+duck: attach leg to the body, as in remove the gap, do not elongate the legs
+
+crystal: redesign, see attached reference
+
+cat: add a nose
+mink: change the angle of the hind legs such that they look more natural
+
+### Assistant
+
+Summary reconstructed from session history: shortened the wolf’s nose and closed its gap; connected the bear’s legs to its feet; moved the lizard’s eyes forward and removed the contrasting face sphere; redesigned the eagle and crystal with the supplied references in mind; tilted the dwarf’s hat back; aligned the fish’s top fin with its body; attached the duck’s leg without lengthening it; added a cat nose; and adjusted the mink’s hind-leg angle. Geometry tests and documentation were updated; tests and production build passed.
+
+## Turn 92
+
+### User
+
+there is no need to point to the provided image references in the developer notes
+
+eagle: rework everything, make it simpler, remove unnecessary spheres, remove the perch, ensure that the animal is still front facing even if the reference was for the side view
+
+cat: ensure that the bust sphere is less pertruding
+
+crystal: remove the dish underneath, change the angle of the individual crystals such that the tips are facing away from middle
+mink: make hinde legs the same width as the front legs
+
+### Assistant
+
+Summary reconstructed from session history: simplified the eagle into a front-facing model without a perch; reduced the cat’s chest protrusion; removed the crystal dish and angled the crystals outward; and matched the mink’s hind-leg width to its front legs. Removed the supplied image-reference links from the developer notes. The gallery was checked, and focused tests passed.
+
+## Turn 93
+
+### User
+
+lizard: temper the tail such that the tail such that the tip is smaller than the base
+
+eagle: remove the pointy things from the legs, elongate the wings a bit to the lower back
+crystal: change the arrangement, such that the individual crystals are connected at the base and face outwards
+
+### Assistant
+
+Summary reconstructed from session history: tapered the lizard’s tail toward a smaller tip, removed the eagle’s pointed leg details and extended its wings toward the lower back, and connected the outward-facing crystals at their bases. Updated geometry tests; all 41 tests and the production build passed.
+
+## Turn 94
+
+### User
+
+eagle: tilt the wings a bit to the back
+
+dwarf: ensure that legs are properly attached to the body, doublecheck the beard, is there something stuck in there?
+
+fish: remove the dot on the sides of the face
+
+cat: add an end to the tail
+
+crystal: remove the base, vary the diferent crystals in sizes, vary their angles, move the individual crystals closer together, ensure that each crystal has 6 sides and is not a tube
+monkey: add an end to the tail
+
+### Assistant
+
+Summary reconstructed from session history: tilted the eagle’s wings backward; improved the dwarf’s limb connections and simplified the beard; removed the fish’s cheek dots; added small tips to the cat and monkey tails; and reshaped the crystal cluster into closely grouped, connected, varied six-sided crystals without a base. Updated geometry tests, checked the gallery, and verified the tests and production build.
+
+## Turn 95
+
+### User
+
+eagle: move the wings to the back not the front
+
+dwarf: change back to the flat round version of the beard
+
+fish: make the nose less pointy
+cat make the tail tip a bit smaller
+monkey: make tail tip smaller
+
+### Assistant
+
+Summary reconstructed from session history: moved the eagle’s wings behind its body, restored the dwarf’s flat round beard, rounded the fish’s nose, and reduced the cat and monkey tail tips. Updated geometry tests; all 41 tests and the production build passed.
+
+## Turn 96
+
+### User
+
+eagle: roll back to last version
+
+### Assistant
+
+Restored the eagle wing depth to its prior position (`z = -0.02`) and updated the geometry test. The other animal changes remain untouched. All 41 tests pass, and the production build succeeds with the existing Vite large-chunk advisory.
+
+## Turn 97
+
+### User
+
+did you keep the chat transcripts up to date with the chat?
+update any missing chats and moving forward ensure that the transcript is up to date
+
+### Assistant
+
+The transcripts were not fully current. I added the missing eagle rollback exchange and this follow-up to both transcript files and updated the clean transcript's exchange count. Going forward, I'll add each repository request and final response to both transcripts after the work is complete.
+
+## Turn 98
+
+### User
+
+no need to run the tests if all that is changed is the transcript.
+
+always always always and never forget to update the transcript
+
+there are still 5 turns missing which take place before the eagle rollback, insert them in the right location
+
+### Assistant
+
+You were right: transcript-only edits do not need a test run. I recovered the five missing exchanges and inserted them in order before the eagle rollback. The assistant summaries are explicitly labeled as reconstructions from session history. Both transcript files now include this request and response.

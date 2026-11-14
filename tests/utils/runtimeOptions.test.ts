@@ -13,11 +13,12 @@ describe("getARStartMode", () => {
 
   describe("getAppFlags", () => {
     it("supports multiple flags in one query string", () => {
-      expect(getAppFlags("?debug=1&force8thwall=1&game=1&ch=1&outside=1&animal=1")).toEqual({
+      expect(getAppFlags("?debug=1&force8thwall=1&game=1&ch=1&buli=1&outside=1&animal=1")).toEqual({
         debug: true,
         forceEightWall: true,
         game: true,
         swissMap: true,
+        buliMap: true,
         outside: true,
         animalGallery: true,
       });
@@ -29,6 +30,7 @@ describe("getARStartMode", () => {
         forceEightWall: false,
         game: false,
         swissMap: false,
+        buliMap: false,
         outside: false,
         animalGallery: false,
       });
@@ -36,9 +38,11 @@ describe("getARStartMode", () => {
   });
 
   describe("getAnimalAreaMapFile", () => {
-    it("uses the Irchel territory map by default and the Swiss map with ch enabled", () => {
+    it("uses the Irchel territory map by default, the Swiss map with ch enabled, and the Bülach map with buli enabled", () => {
       expect(getAnimalAreaMapFile(false)).toBe("irchel.geojson");
       expect(getAnimalAreaMapFile(true)).toBe("animal-areas.geojson");
+      expect(getAnimalAreaMapFile(false, true)).toBe("bülach.geojson");
+      expect(getAnimalAreaMapFile(true, true)).toBe("bülach.geojson");
     });
   });
 

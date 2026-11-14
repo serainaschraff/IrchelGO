@@ -55,6 +55,7 @@ const {
   forceEightWall: forceEightWallEnabled,
   game: gameEnabled,
   swissMap: swissMapEnabled,
+  buliMap: buliMapEnabled,
   outside: outsideModeEnabled,
   animalGallery: animalGalleryEnabled,
 } = getAppFlags(window.location.search);
@@ -255,7 +256,7 @@ export default function App() {
         async function loadAreasAndWatchLocation() {
           try {
             const response = await fetch(
-              `${import.meta.env.BASE_URL}data/${getAnimalAreaMapFile(swissMapEnabled)}`,
+              `${import.meta.env.BASE_URL}data/${getAnimalAreaMapFile(swissMapEnabled, buliMapEnabled)}`,
               {
               signal: controller.signal,
               },
@@ -266,7 +267,12 @@ export default function App() {
 
             const rawData: unknown = await response.json();
             let data: GeoJSONAreaCollection<AnimalAreaProperties>;
-            if (swissMapEnabled) {
+            if (buliMapEnabled) {
+              if (!isGeoJSONAreaCollection(rawData, isTerritoryProperties)) {
+                throw new Error("Bülach territory data is not a valid GeoJSON FeatureCollection.");
+              }
+              data = assignIrchelAnimalsToTerritories(rawData);
+            } else if (swissMapEnabled) {
               if (!isGeoJSONAreaCollection(rawData, isCantonTerritoryProperties)) {
                 throw new Error("Swiss animal area data is not a valid GeoJSON FeatureCollection.");
               }
@@ -770,6 +776,7 @@ export default function App() {
               <li><code>?force8thwall=1</code> — start 8th Wall directly.</li>
               <li><code>?game=1</code> — place the denied-location reminder on a WebXR plane.</li>
               <li><code>?ch=1</code> — use the Swiss canton map instead of the Irchel map.</li>
+              <li><code>?buli=1</code> — use the Bülach territory map instead of the Irchel map.</li>
               <li><code>?outside=1</code> — use a 25 m move-on distance.</li>
               <li><code>?animal=1</code> — browse and spin through the animal variants without AR or location access.</li>
               <li>Flags can be combined, for example <code>?debug=1&amp;game=1</code>.</li>
