@@ -1471,3 +1471,34 @@ there are still 5 turns missing which take place before the eagle rollback, inse
 ### Assistant
 
 You were right: transcript-only edits do not need a test run. I recovered the five missing exchanges and inserted them in order before the eagle rollback. The assistant summaries are explicitly labeled as reconstructions from session history. Both transcript files now include this request and response.
+
+## Turn 99
+
+### User
+
+do you see an issue with bülach.geojson and irchel.geojson that would not be present in animal-areas.geojson?
+
+### Assistant
+
+Yes — the main issue is not “bad GeoJSON syntax,” it’s a compatibility mismatch.
+
+- [public/data/bülach.geojson](</c:/Users/Seraina/Desktop/Uni/GEO%20879/App/IrchelGO/public/data/bülach.geojson>) is in Swiss projected coordinates, not GPS coordinates.
+  - The numbers are around 2683532, 1262692, which look like LV95 / EPSG:2056 meter coordinates.
+  - The app’s geolocation check compares against browser GPS values like latitude/longitude, e.g. 47.x and 8.x.
+  - Those are different coordinate systems, so point-in-polygon will never match correctly unless the Bülach layer is reprojected to WGS84 / EPSG:4326.
+
+- [public/data/irchel.geojson](</c:/Users/Seraina/Desktop/Uni/GEO%20879/App/IrchelGO/public/data/irchel.geojson>) is much closer to the app’s expected format because it uses longitude/latitude degree values.
+  - But it is still not equivalent to [public/data/animal-areas.geojson](</c:/Users/Seraina/Desktop/Uni/GEO%20879/App/IrchelGO/public/data/animal-areas.geojson>).
+  - It has a different property schema (`fid`, `area`) and is tied to the Irchel territory assignment logic, not canton-based matching logic.
+
+- [public/data/animal-areas.geojson](</c:/Users/Seraina/Desktop/Uni/GEO%20879/App/IrchelGO/public/data/animal-areas.geojson>) is the one that matches the app assumptions.
+  - It is in lon/lat
+  - It has `areaId`, `areaName`, `cantonISO`, etc.
+  - It is built for the location-matching code in [src/utils/territories.ts](</c:/Users/Seraina/Desktop/Uni/GEO%20879/App/IrchelGO/src/utils/territories.ts>)
+
+So in short:
+- `bülach.geojson`: not compatible with live GPS matching as-is
+- `irchel.geojson`: usable in principle for the custom territory logic, but different from the canton-based GeoJSON the app is built around
+- `animal-areas.geojson`: the “safe” one for the current point-in-polygon workflow
+
+If you want Bülach to work with the current location code, it needs to be converted from EPSG:2056 to EPSG:4326 before being loaded.

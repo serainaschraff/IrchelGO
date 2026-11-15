@@ -33,9 +33,9 @@ import {
 } from "./utils/runtimeOptions";
 import {
   assignAnimalsToCantonTerritories,
-  assignIrchelAnimalsToTerritories,
+  assignAreaAnimalsToTerritories,
+  isAreaNameTerritoryProperties,
   isCantonTerritoryProperties,
-  isTerritoryProperties,
   type AnimalAreaProperties,
 } from "./utils/territories";
 
@@ -267,21 +267,16 @@ export default function App() {
 
             const rawData: unknown = await response.json();
             let data: GeoJSONAreaCollection<AnimalAreaProperties>;
-            if (buliMapEnabled) {
-              if (!isGeoJSONAreaCollection(rawData, isTerritoryProperties)) {
-                throw new Error("Bülach territory data is not a valid GeoJSON FeatureCollection.");
-              }
-              data = assignIrchelAnimalsToTerritories(rawData);
-            } else if (swissMapEnabled) {
+            if (swissMapEnabled) {
               if (!isGeoJSONAreaCollection(rawData, isCantonTerritoryProperties)) {
                 throw new Error("Swiss animal area data is not a valid GeoJSON FeatureCollection.");
               }
               data = assignAnimalsToCantonTerritories(rawData);
             } else {
-              if (!isGeoJSONAreaCollection(rawData, isTerritoryProperties)) {
-                throw new Error("Irchel territory data is not a valid GeoJSON FeatureCollection.");
+              if (!isGeoJSONAreaCollection(rawData, isAreaNameTerritoryProperties)) {
+                throw new Error("Area-based territory data is not a valid GeoJSON FeatureCollection.");
               }
-              data = assignIrchelAnimalsToTerritories(rawData);
+              data = assignAreaAnimalsToTerritories(rawData);
             }
 
             if (controller.signal.aborted) return;

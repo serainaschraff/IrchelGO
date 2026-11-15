@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import { animalRegistry } from "../../src/utils/animals";
 import { isGeoJSONAreaCollection } from "../../src/utils/geolocation";
 import {
+  assignAreaAnimalsToTerritories,
   assignIrchelAnimalsToTerritories,
   assignAnimalsToCantonTerritories,
+  isAreaNameTerritoryProperties,
   isCantonTerritoryProperties,
   isTerritoryProperties,
   type CantonTerritoryProperties,
@@ -58,8 +60,9 @@ const cantonSource: GeoJSONAreaCollection<CantonTerritoryProperties> = {
 };
 
 describe("territory property guards", () => {
-  it("accepts valid Irchel and canton territory properties and rejects malformed values", () => {
+  it("accepts valid area-based and canton territory properties and rejects malformed values", () => {
     expect(isTerritoryProperties({ fid: 1, area: "park" })).toBe(true);
+    expect(isAreaNameTerritoryProperties({ fid: 1, area: "park" })).toBe(true);
     expect(isTerritoryProperties(null)).toBe(false);
     expect(isTerritoryProperties({ fid: "1", area: "park" })).toBe(false);
     expect(isTerritoryProperties({ fid: 1, area: "" })).toBe(false);
@@ -72,6 +75,18 @@ describe("territory property guards", () => {
       areaId: "canton-zh",
       areaName: "Canton Zürich",
     })).toBe(false);
+  });
+});
+
+describe("assignAreaAnimalsToTerritories", () => {
+  it("supports generic territory maps that use area names instead of canton identifiers", () => {
+    const assigned = assignAreaAnimalsToTerritories(irchelSource);
+
+    expect(assigned.features[0]?.properties).toMatchObject({
+      areaId: "park-4",
+      areaName: "park",
+      animals: ["ember-fox", "frost-fox", "bramble-hedgehog", "moonlit-hedgehog"],
+    });
   });
 });
 
@@ -118,8 +133,8 @@ describe("assignIrchelAnimalsToTerritories", () => {
     expect(assigned.features[0]?.properties).toMatchObject({
       fid: 4,
       area: "park",
-      areaId: "irchel-4",
-      areaName: "park territory 4",
+      areaId: "park-4",
+      areaName: "park",
       animals: ["ember-fox", "frost-fox", "bramble-hedgehog", "moonlit-hedgehog"],
     });
     expect(irchelSource.features[0]?.properties).toEqual({ fid: 4, area: "park" });
@@ -136,7 +151,7 @@ describe("assignIrchelAnimalsToTerritories", () => {
     };
 
     expect(() => assignIrchelAnimalsToTerritories(unknownArea)).toThrow(
-      'No animal assignment is configured for Irchel area "unknown".',
+      'No animal assignment is configured for territory "unknown".',
     );
   });
 });

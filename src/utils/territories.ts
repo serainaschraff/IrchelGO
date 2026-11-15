@@ -10,6 +10,8 @@ export type TerritoryProperties = {
   [key: string]: unknown;
 };
 
+export type AreaNameTerritoryProperties = TerritoryProperties;
+
 export type CantonTerritoryProperties = {
   areaId: string;
   areaName: string;
@@ -88,6 +90,12 @@ export function isTerritoryProperties(
   );
 }
 
+export function isAreaNameTerritoryProperties(
+  value: unknown,
+): value is AreaNameTerritoryProperties | null {
+  return isTerritoryProperties(value);
+}
+
 export function isCantonTerritoryProperties(
   value: unknown,
 ): value is CantonTerritoryProperties | null {
@@ -103,7 +111,7 @@ export function isCantonTerritoryProperties(
   );
 }
 
-export function assignIrchelAnimalsToTerritories(
+export function assignAreaAnimalsToTerritories(
   collection: GeoJSONAreaCollection<TerritoryProperties>,
 ): GeoJSONAreaCollection<AnimalAreaProperties> {
   const features: GeoJSONAreaFeature<AnimalAreaProperties>[] = collection.features.map(
@@ -115,22 +123,21 @@ export function assignIrchelAnimalsToTerritories(
 
       const animals = irchelAnimalAssignments[properties.area];
       if (!animals) {
-        throw new Error(`No animal assignment is configured for Irchel area "${properties.area}".`);
+        throw new Error(`No animal assignment is configured for territory "${properties.area}".`);
       }
 
       for (const animalId of animals) {
         if (!animalRegistry.some((animal) => animal.id === animalId)) {
-          throw new Error(`Irchel area "${properties.area}" references an unregistered animal.`);
+          throw new Error(`Territory "${properties.area}" references an unregistered animal.`);
         }
       }
 
-      const readableArea = properties.area.replaceAll("-", " ");
       return {
         ...feature,
         properties: {
           ...properties,
-          areaId: `irchel-${properties.fid}`,
-          areaName: `${readableArea} territory ${properties.fid}`,
+          areaId: `${properties.area}-${properties.fid}`,
+          areaName: properties.area,
           animals: [...animals],
         },
       };
@@ -138,6 +145,12 @@ export function assignIrchelAnimalsToTerritories(
   );
 
   return { ...collection, features };
+}
+
+export function assignIrchelAnimalsToTerritories(
+  collection: GeoJSONAreaCollection<TerritoryProperties>,
+): GeoJSONAreaCollection<AnimalAreaProperties> {
+  return assignAreaAnimalsToTerritories(collection);
 }
 
 export function assignAnimalsToCantonTerritories(
